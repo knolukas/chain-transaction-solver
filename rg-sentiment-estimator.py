@@ -1,3 +1,4 @@
+from datetime import datetime
 import getpass
 import os
 
@@ -13,35 +14,6 @@ from pydantic import BaseModel
 import texts
 import pandas as pd
 from langchain_core.prompts import ChatPromptTemplate
-
-prompt_template_sentiment = ChatPromptTemplate([
-    ("system", "You are an expert in the legal field, you understand legal formulations and the technical jargon "
-               "and you are an expert in the VAT area with regard to chain transactions in Austria and the "
-               "European Union. Your job is to analyze a given text and estimate if this text is either a description "
-               "of a"
-               "chain transaction (category: Chain Transaction) or the description of a previous legal process or "
-               "complaint regarding a chain transaction (category: Legal Process)."
-               "terms like: Zollamt, Finanzamt, Bundesfinanzgericht, Bundesfinanzministerium, Zollanmeldung"
-               "belong to category 'Legal Process'. "
-               "Estimate the percentage of this text that fits into each category."
-               "The output should be two percentage values that add up to exactly 100%."
-               "{output}"),
-    ("human", "{text}"),
-])
-
-prompt_template_case = ChatPromptTemplate([
-    ("system", "Extract the whole section of this document where the case is described."
-               "It should be marked as 'Sachverhalt' or 'Verfahrensgang' or related legal terms written in German language."
-               "Do not change or add anything. Simply copy the relevant content."),
-    ("human", "{text}"),
-])
-
-prompt_template_verdict = ChatPromptTemplate([
-    ("system", "Extract the whole section of this document where the verdict of this case is described."
-               "It should be marked as 'Erwaegungen' or 'Es wurde erwogen' or related legal terms written in German language."
-               "do not change or add anything. Simply copy the relevant content."),
-    ("human", "{text}"),
-])
 
 load_dotenv('.env')
 
@@ -66,10 +38,11 @@ llm = ChatOpenAI(
 # Pydantic
 class TextAnalysis(BaseModel):
     """Text Analysis Structure"""
-    case: str = Field(description="Copied case description")
-    verdict: str = Field(description="Copied verdict description")
-    chainTransactionShare: float = Field(description="Amount of text that belongs to chain transaction description")
-    legalProcessShare: float = Field(description="Amount of text that belongs to legal process description")
+    chainTransactionShare: float = Field(
+        description="Percentage value of text that belongs to chain transaction description")
+    chainTransactionDescription: str = Field(description="Text that describes the chain transaction")
+    legalProcessShare: float = Field(description="Percentage value of text that belongs to legal process description")
+    legalProcessDescription: str = Field(description="Text that describes the legal process")
     analysis: str = Field(description="Analysis of percentage estimation")
 
 
@@ -82,68 +55,52 @@ prompt_template = ChatPromptTemplate([
                "and you are an expert in the VAT area with regard to chain transactions in Austria and the "
                "European Union. Your job is to analyze a given text and estimate if this text is either a description "
                "of a"
-               "chain transaction (category: Chain Transaction) or the description of a previous legal process or "
-               "complaint regarding a chain transaction (category: Legal Process)."
-               "Do not change or add anything. Simply copy the relevant content."
+               "chain transaction (category: Chain Transaction) or the description of a legal process (category: Legal Process)."
+               "This is an example of a pure chain transaction description: \'Ein ungarischer Unternehmer U4 "
+               "(=Empfänger) bestellt bei seinem italienischen Lieferanten U3 (=2. Erwerber) eine Maschine. "
+               "Dieser wiederum bestellt die Maschine beim österreichischen Großhändler U2 (=1. Erwerber). "
+               "Da der Großhändler U2 die Maschine nicht auf Lager hat, bestellt er diese beim deutschen Produzenten "
+               "U1 (=Erstlieferant) und weist diesen an, die Maschine direkt an den ungarischen Unternehmer U4 zu liefern."
                "Wrap the output in 'json' tags\n{format_instructions}"
-               "output node 'case': Extract the whole chapter of this document where the case is described."
-               "The begin is marked as 'Sachverhalt' or 'Verfahrensgang' or related legal terms."
-               " Do not change or add anything. Simply copy the relevant content."
-               "output node 'verdict': Extract the whole chapter of this document where the verdict is described."
-               "The begin is marked as 'Erwaegungen' or 'Es wurde erwogen' or related legal terms"
-               "Do not change or add anything. Simply copy the relevant content."
-               "output node 'chainTransactionShare': Analyze only the case description and estimate if this text is "
-               "either a description of a"
+     ),
+    ("human", "{text}"),
+]).partial(format_instructions=parser.get_format_instructions())
+
+prompt_template_sentiment = ChatPromptTemplate([
+    ("system", "You are an expert in the legal field, you understand legal formulations and the technical jargon "
+               "and you are an expert in the VAT area with regard to chain transactions in Austria and the "
+               "European Union. Your job is to analyze a given text and estimate if this text is either a description "
+               "of a"
                "chain transaction (category: Chain Transaction) or the description of a previous legal process or "
                "complaint regarding a chain transaction (category: Legal Process)."
                "terms like: Zollamt, Finanzamt, Bundesfinanzgericht, Bundesfinanzministerium, Zollanmeldung"
                "belong to category 'Legal Process'. "
                "Estimate the percentage of this text that fits into each category."
-               "The output should be two percentage values that add up to exactly 100%. State the percentage value of "
-               "'Chain Transaction' here."
-               "output node 'legalProcessShare': state the percentage of 'Legal Process' that fits into"
-               "output node 'analysis': Argue your estimation in textual form"
-     ),
+               "The output should be two percentage values that add up to exactly 100%."
+               "{output}"),
     ("human", "{text}"),
-]).partial(format_instructions=parser.get_format_instructions())
+])
 
+prompt_template_extractor = ChatPromptTemplate([
+    ("system", "You are a simple value extractor. In the given text there are percentage values for 2 categories."
+               "You should only copy the relevant value. Do not change anything."
+               "{output}"),
+    ("human", "{text}"),
+])
 
-# structured_llm.invoke("Tell me a joke about cats")
+prompt_template_case = ChatPromptTemplate([
+    ("system", "Extract the whole section of this document where the case is described."
+               "It should be marked as 'Sachverhalt' or 'Verfahrensgang' or related legal terms written in German language."
+               "Do not change or add anything. Simply copy the relevant content."),
+    ("human", "{text}"),
+])
 
-def extract_text_from_pdf(pdf_path):
-    text = ""
-    with pdfplumber.open(pdf_path) as pdf:
-        for page in pdf.pages:
-            text += page.extract_text()
-    return text
-
-
-# Pfad zum Projektverzeichnis
-project_directory = "input_data"
-
-# Leere Liste für die extrahierten Daten
-data = []
-
-# Durchsuchen des Verzeichnisses nach PDF-Dateien
-for filename in os.listdir(project_directory):
-    if filename.endswith(".pdf"):
-        pdf_path = os.path.join(project_directory, filename)
-        raw_text = extract_text_from_pdf(pdf_path)
-
-        data.append({"Filename": filename, "RawText": raw_text})
-
-# Erstellen eines DataFrames
-df = pd.DataFrame(data)
-
-# Starte LLM
-df['Response'] = df['RawText'].apply(lambda x: structured_llm.invoke(prompt_template.invoke(x)))
-
-# Verarbeite LLM Response
-df['Case'] = df['Response'].apply(lambda x: x.case)
-df['Verdict Description'] = df['Response'].apply(lambda x: x.verdict)
-df['Percentage Chain Transaction'] = df['Response'].apply(lambda x: x.chainTransactionShare)
-df['Percentage Legal Process'] = df['Response'].apply(lambda x: x.legalProcessShare)
-df['Analysis'] = df['Response'].apply(lambda x: x.analysis)
+prompt_template_verdict = ChatPromptTemplate([
+    ("system", "Extract the whole section of this document where the verdict of this case is described."
+               "It should be marked as 'Erwaegungen' or 'Es wurde erwogen' or related legal terms written in German language."
+               "do not change or add anything. Simply copy the relevant content."),
+    ("human", "{text}"),
+])
 
 
 def extract_text(document_text, extract_type):
@@ -155,10 +112,18 @@ def extract_text(document_text, extract_type):
         prompt = prompt_template_verdict.invoke(document_text)
         return llm.invoke(prompt).content
 
-    elif extract_type == "shareChain":
-        prompt = prompt_template_sentiment.invoke({"output": "Only state the percentage value of "
-                                                             "Chain Transaction as float number (0.5)",
-                                                   "text": document_text})
+    elif extract_type == "percentValueExtractionChain":
+        prompt = prompt_template_extractor.invoke(
+            {"output": "Print the number of the mentioned percentage share of category"
+                       "Chain Transaction (format 80,0). Do not print anything else.",
+             "text": document_text})
+        return llm.invoke(prompt).content
+
+    elif extract_type == "percentValueExtractionLegal":
+        prompt = prompt_template_extractor.invoke(
+            {"output": "Print the number of the mentioned percentage share of category"
+                       "Legal process (format 80,0). Do not print anything else.",
+             "text": document_text})
         return llm.invoke(prompt).content
 
     elif extract_type == "shareLegal":
@@ -175,3 +140,54 @@ def extract_text(document_text, extract_type):
 
     else:
         return "ERROR: Extract type must be 'case' or 'verdict' or 'sentiment'."
+
+
+def extract_text_from_pdf(pdf_path):
+    text = ""
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            text += page.extract_text()
+    return text
+
+
+# Pfad zum Projektverzeichnis
+project_directory = "H:/Users/Lukas/OneDrive/Masterarbeit - LLMs in VAT - Knogler Lukas/Findok"
+
+# Leere Liste für die extrahierten Daten
+data = []
+
+# Durchsuchen des Verzeichnisses nach PDF-Dateien
+for filename in os.listdir(project_directory):
+    if filename.endswith(".pdf"):
+        pdf_path = os.path.join(project_directory, filename)
+        raw_text = extract_text_from_pdf(pdf_path)
+
+        data.append({"Filename": filename, "RawText": raw_text})
+
+# Erstellen eines DataFrames
+df = pd.DataFrame(data)
+
+# Start LLM
+df.loc[0:75, 'Response'] = df.loc[0:75, 'Case'].apply(lambda x: structured_llm.invoke(prompt_template.invoke(x)))
+#
+# # Verarbeite LLM Response
+# df['Case'] = df['Response'].apply(lambda x: x.case)
+# df['Verdict Description'] = df['Response'].apply(lambda x: x.verdict)
+# df['Percentage Chain Transaction'] = df['Response'].apply(lambda x: x.chainTransactionShare)
+# df['Chain Transaction Description'] = df['Response'].apply(lambda x: x.chainTransactionDescription)
+# df['Percentage Legal Process'] = df['Response'].apply(lambda x: x.legalProcessShare)
+# df['Percentage Legal Description'] = df['Response'].apply(lambda x: x.legalProcessDescription)
+# df['Analysis'] = df['Response'].apply(lambda x: x.analysis)
+df = pd.read_csv('dataframes/findok_data.csv')
+
+df['Case'] = df['RawText'].apply(lambda x: extract_text(x, 'case'))
+df.loc[26:, 'Analysis'] = df.loc[26:, 'Case'].apply(lambda x: extract_text(x, 'sentimentAnalysis'))
+df.loc[0:75, '%ChainTransaction'] = df.loc[0:75, 'Analysis'].apply(
+    lambda x: extract_text(x, 'percentValueExtractionChain'))
+df.loc[0:75, '%LegalProcess'] = df.loc[0:75, 'Analysis'].apply(lambda x: extract_text(x, 'percentValueExtractionLegal'))
+
+# df.loc[:10, 'Case'] = df.loc[:10, 'RawText'].apply(lambda x: extract_text(x, 'case'))
+
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+filename = f'output_{timestamp}.csv'
+df.to_csv(os.path.join('dataframes', 'findok_data.csv'), index=False)
