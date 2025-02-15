@@ -169,15 +169,13 @@ df = pd.DataFrame(data)
 
 # Start LLM
 df.loc[0:75, 'Response'] = df.loc[0:75, 'Case'].apply(lambda x: structured_llm.invoke(prompt_template.invoke(x)))
-#
-# # Verarbeite LLM Response
-# df['Case'] = df['Response'].apply(lambda x: x.case)
-# df['Verdict Description'] = df['Response'].apply(lambda x: x.verdict)
-# df['Percentage Chain Transaction'] = df['Response'].apply(lambda x: x.chainTransactionShare)
-# df['Chain Transaction Description'] = df['Response'].apply(lambda x: x.chainTransactionDescription)
-# df['Percentage Legal Process'] = df['Response'].apply(lambda x: x.legalProcessShare)
-# df['Percentage Legal Description'] = df['Response'].apply(lambda x: x.legalProcessDescription)
-# df['Analysis'] = df['Response'].apply(lambda x: x.analysis)
+
+# Verarbeite LLM Response
+df['%Chain Transaction'] = df['Response'].apply(lambda x: x.chainTransactionShare)
+df['Chain Transaction Description'] = df['Response'].apply(lambda x: x.chainTransactionDescription)
+df['%Legal Process'] = df['Response'].apply(lambda x: x.legalProcessShare)
+df['Legal Process Description'] = df['Response'].apply(lambda x: x.legalProcessDescription)
+
 df = pd.read_csv('dataframes/findok_data.csv')
 
 df['Case'] = df['RawText'].apply(lambda x: extract_text(x, 'case'))

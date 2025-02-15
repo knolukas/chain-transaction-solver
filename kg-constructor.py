@@ -1,11 +1,31 @@
-import getpass
+import asyncio
+import json
 import os
+
+import pandas as pd
+from langchain.chains.llm import LLMChain
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate, SystemMessagePromptTemplate
 from langchain_neo4j import Neo4jGraph
 from langchain_experimental.graph_transformers import LLMGraphTransformer
 from langchain_openai import ChatOpenAI
 from langchain_core.documents import Document
 from dotenv import load_dotenv
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.chains import RetrievalQA
+from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
+import rag_wrapper
+import itertools
+
+# Initialisiere einen globalen Counter für die Graph-IDs
+graph_id_counter = itertools.count(start=20)
+
+
+def get_next_graph_id():
+    return f"graph_{next(graph_id_counter)}"
 
 
 load_dotenv('.env')
@@ -16,7 +36,56 @@ os.environ["NEO4J_USERNAME"] = os.getenv("NEO4J_USERNAME")
 os.environ["NEO4J_PASSWORD"] = os.getenv("NEO4J_PASSWORD")
 
 graph = Neo4jGraph(refresh_schema=False)
-llm = ChatOpenAI(temperature=0, model_name="gpt-4o-mini")
+
+# # Alle PDFs aus dem "files/" Ordner laden
+# pdf_files = [f for f in os.listdir("files") if f.endswith(".pdf")]
+#
+# documents = []
+# for pdf in pdf_files:
+#     pdf_loader = PyPDFLoader(os.path.join("files", pdf))
+#     documents.extend(pdf_loader.load())
+#
+# # Teile den Text in kleinere Abschnitte (Chunking)
+# text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+# docs = text_splitter.split_documents(documents)
+#
+# # Vektor-DB laden
+# vectorstore = FAISS.from_documents(docs, OpenAIEmbeddings())
+# vectorstore.save_local("files")
+#
+# # FAISS-Datenbank laden (Sicherheitsoption beachten)
+# vectorstore = FAISS.load_local("files/", OpenAIEmbeddings(), allow_dangerous_deserialization=True)
+#
+# # Retriever aus der Vektor-Datenbank erstellen
+# retriever = vectorstore.as_retriever()
+
+# LLM initialisieren
+llm = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0,
+    max_tokens=None,
+    timeout=None,
+    max_retries=2,
+)
+
+# # Prompt für den RAG-Workflow
+# prompt_template = """Nutze die folgenden Dokumente, um die Frage zu beantworten:
+# {context}
+#
+# Frage: {question}
+# Antwort:"""
+# prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
+#
+# # RAG-Chain definieren
+# rag_chain = LLMChain(llm=llm, prompt=prompt)
+#
+#
+# # Wrapper-Funktion zum Abrufen relevanter Dokumente
+# def rag_with_context(question: str):
+#     docs = retriever.get_relevant_documents(question)
+#     context = "\n".join([doc.page_content for doc in docs])
+#     return rag_chain.invoke({"context": context, "question": question})
+
 
 text = """
 Marie Curie, born in 1867, was a Polish and naturalised-French physicist and chemist who conducted pioneering research on radioactivity.
@@ -336,38 +405,399 @@ Dem österreichischen Unternehmer U2 wird die Ware vom Schweizer Unternehmer U1 
 Unternehmer verrechnet die Ware weiter an den deutschen Unternehmer U3. Die Ware gelangt aber direkt vom Schweizer 
 Unternehmer U1 an den italienischen Empfänger U4. Transport wird durch U2 veranlasst.
 """
+reihegeschaeft_bsp = """Ein österreichischer Unternehmer U4 (=Empfänger) bestellt bei seinem österreichischen Lieferanten 
+U3 (=2. Erwerber) eine Maschine. Dieser wiederum bestellt die Maschine beim österreichischen 
+Großhändler U2 (=1. Erwerber). Da der Großhändler U2 die Maschine nicht auf Lager hat, bestellt 
+er diese beim österreichischen Produzenten U1 (=Erstlieferant).
+Der österreichische Großhändler U2 holt die Maschine vom österreichischen 
+Produzenten U1 ab und liefert diese direkt an den österreichischen Unternehmer U4."""
+
 wko_1 = """
 Der französische Unternehmer FR1 bestellt beim französischen Unternehmer FR2 Ware. 
 Dieser hat die Ware nicht lagernd und bestellt sie beim österreichischen Unternehmer AT. 
 AT beauftragt einen Spediteur die Ware direkt zu FR1 nach Frankreich zu befördern. 
 FR2 gibt seine französische UID-Nummer bekannt.
 """
-documents = [Document(page_content=sachverhalt)]
 
-# """
-# First approach without filter
-# """
-# llm_transformer = LLMGraphTransformer(llm=llm)
-# graph_documents = llm_transformer.convert_to_graph_documents(documents)
-# print(f"Nodes:{graph_documents[0].nodes}")
-# print(f"Relationships:{graph_documents[0].relationships}")
 
-"""
-Second approach with three-tuple
-"""
-allowed_relationships = [
-    ("Person", "SPOUSE", "Person"),
-    ("Person", "NATIONALITY", "Country"),
-    ("Person", "WORKED_AT", "Organization"),
-]
+# class RAGLLMWrapper:
+#     """Wrapper, um RAG als LLM für LLMGraphTransformer nutzbar zu machen."""
+#
+#     def __init__(self, rag_chain):
+#         self.rag_chain = rag_chain  # Die RAG-Kette speichern
+#
+#     def invoke(self, prompt):
+#         """Diese Methode wird aufgerufen, wenn LLMGraphTransformer eine Antwort erwartet."""
+#         return self.rag_chain.run(prompt)  # RAG-Kette für den Prompt ausführen
 
-llm_transformer_props = LLMGraphTransformer(
-    llm=llm,
-    allowed_nodes=["Person", "Firm"],
-    allowed_relationships=["ORDERS_FROM", "DELIVERS_TO"],
-    node_properties=["country"],
-    relationship_properties=["good"]
+def delete_graph():
+    query = "MATCH (n) DETACH DELETE n"
+    graph.query(query)
+    print("Graph deleted successfully")
+
+
+def format_graph_documents(graph_docs):
+    formatted_data = []
+
+    for graph_doc in graph_docs:  # Iteriere über die Liste
+        formatted_data.append({
+            "nodes": [
+                {"id": node.id, "type": node.type, "properties": node.properties}
+                for node in graph_doc.nodes
+            ],
+            "relationships": [
+                {
+                    "source": rel.source.id,
+                    "target": rel.target.id,
+                    "type": rel.type,
+                    "properties": rel.properties,
+                }
+                for rel in graph_doc.relationships
+            ],
+            "source_document": {
+                "metadata": graph_doc.source.metadata,
+                "content": graph_doc.source.page_content,
+            },
+        })
+
+    return json.dumps(formatted_data, indent=4, ensure_ascii=False)
+
+
+# async def process_graph():
+#     data = await llm_transformer_props.aconvert_to_graph_documents(documents)
+#     graph.add_graph_documents(data)
+#     print(data)
+
+
+def main():
+    print("Hello, World!")
+
+
+# allowed_nodes_good = ["Good", "Person", "Company", "Entrepreneur", "Carrier"]
+# allowed_nodes_with_graph_id_good = [f"{node}:{graph_id}" for node in allowed_nodes_good]
+# allowed_relationships_good = [
+#     (f"{start}:{graph_id}", rel, f"{end}:{graph_id}") for start, rel, end in [
+#         ("Good", "ORDERED_FROM", "Company"),
+#         ("Good", "ORDERED_FROM", "Entrepreneur"),
+#         ("Good", "ORDERED_FROM", "Person"),
+#         ("Good", "DELIVERED_TO", "Company"),
+#         ("Good", "DELIVERED_TO", "Entrepreneur"),
+#         ("Good", "DELIVERED_TO", "Person"),
+#         ("Good", "DELIVERED_FROM", "Person"),
+#         ("Good", "DELIVERED_FROM", "Person"),
+#         ("Good", "DELIVERED_FROM", "Person"),
+#         ("Company", "INSTRUCTS", "Carrier"),
+#         ("Person", "INSTRUCTS", "Carrier"),
+#         ("Entrepreneur", "INSTRUCTS", "Carrier"),
+#         ("Good", "COLLECTED_FROM", "Company"),
+#         ("Good", "COLLECTED_FROM", "Entrepreneur"),
+#         ("Good", "COLLECTED_FROM", "Person"),
+#     ]
+# ]
+# node_properties_good = ["country", "UID", "name"]
+# relationship_properties_good = ["date", "serial_id"]
+
+# rag_llm = RAGLLMWrapper(rag_chain)
+
+
+# llm_transformer_props_good = LLMGraphTransformer(
+#     llm=llm,
+#     allowed_nodes=allowed_nodes_with_graph_id_good,
+#     allowed_relationships=allowed_relationships_good,
+#     node_properties=node_properties_good,
+#     relationship_properties=relationship_properties_good,
+# )
+
+additional_instructions = ("system: Add the name of the transported good as "
+                           "relationship property \"transported_good\".")
+
+project_directory = "H:/Users/Lukas/OneDrive/Masterarbeit - LLMs in VAT - Knogler Lukas/"
+df = pd.read_excel(project_directory + "Beispiele_Reihengeschäfte.xlsx")
+
+
+def process_text_with_graph_transformer(text):
+    """Wendet den LLM-Graph-Transformer an und fügt die Graph-ID hinzu."""
+    graph_id = get_next_graph_id()  # Nächste Graph-ID holen
+    allowed_nodes = ["Person", "Company", "Entrepreneur", "Carrier"]
+    allowed_nodes_with_graph_id = [f"{node}:{graph_id}" for node in allowed_nodes]
+    allowed_relationships = [
+        (f"{start}:{graph_id}", rel, f"{end}:{graph_id}") for start, rel, end in [
+            ("Company", "ORDERS_FROM", "Company"),
+            ("Company", "ORDERS_FROM", "Entrepreneur"),
+            ("Company", "ORDERS_FROM", "Person"),
+            ("Entrepreneur", "ORDERS_FROM", "Company"),
+            ("Entrepreneur", "ORDERS_FROM", "Entrepreneur"),
+            ("Entrepreneur", "ORDERS_FROM", "Person"),
+            ("Person", "ORDERS_FROM", "Company"),
+            ("Person", "ORDERS_FROM", "Entrepreneur"),
+            ("Person", "ORDERS_FROM", "Person"),
+            ("Company", "DELIVERS_TO", "Company"),
+            ("Company", "DELIVERS_TO", "Entrepreneur"),
+            ("Company", "DELIVERS_TO", "Person"),
+            ("Entrepreneur", "DELIVERS_TO", "Company"),
+            ("Entrepreneur", "DELIVERS_TO", "Entrepreneur"),
+            ("Entrepreneur", "DELIVERS_TO", "Person"),
+            ("Carrier", "DELIVERS_TO", "Company"),
+            ("Carrier", "DELIVERS_TO", "Entrepreneur"),
+            ("Carrier", "DELIVERS_TO", "Person"),
+            ("Person", "DELIVERS_TO", "Company"),
+            ("Person", "DELIVERS_TO", "Entrepreneur"),
+            ("Person", "DELIVERS_TO", "Person"),
+            ("Company", "INSTRUCTS", "Carrier"),
+            ("Person", "INSTRUCTS", "Carrier"),
+            ("Entrepreneur", "INSTRUCTS", "Carrier"),
+            ("Company", "COLLECTS_FROM", "Company"),
+            ("Company", "COLLECTS_FROM", "Entrepreneur"),
+            ("Company", "COLLECTS_FROM", "Person"),
+            ("Entrepreneur", "COLLECTS_FROM", "Company"),
+            ("Entrepreneur", "COLLECTS_FROM", "Entrepreneur"),
+            ("Entrepreneur", "COLLECTS_FROM", "Person"),
+            ("Carrier", "COLLECTS_FROM", "Company"),
+            ("Carrier", "COLLECTS_FROM", "Entrepreneur"),
+            ("Carrier", "COLLECTS_FROM", "Person"),
+            ("Person", "COLLECTS_FROM", "Company"),
+            ("Person", "COLLECTS_FROM", "Entrepreneur"),
+            ("Person", "COLLECTS_FROM", "Person"),
+        ]
+    ]
+    node_properties = ["country", "UID", "name"]
+    relationship_properties = ["date", "transported_good"]
+
+    llm_transformer_props = LLMGraphTransformer(
+        llm=llm,
+        allowed_nodes=allowed_nodes_with_graph_id,
+        allowed_relationships=allowed_relationships,
+        prompt=get_prompt()
+    )
+
+    docs = llm_transformer_props.convert_to_graph_documents([Document(page_content=text)])
+
+    return docs
+
+json_string = """{{
+  "parsed": {{
+    "nodes": [
+      {{
+        "id": "FR1",
+        "type": "Company"
+      }},
+      {{
+        "id": "FR2",
+        "type": "Company"
+      }},
+      {{
+        "id": "AT",
+        "type": "Company"
+      }},
+      {{
+        "id": "Good",
+        "type": "Product"
+      }},
+      {{
+        "id": "Austria",
+        "type": "Country"
+      }},
+      {{
+        "id": "France",
+        "type": "Country"
+      }},
+      {{
+        "id": "Delivery_1",
+        "type": "Delivery"
+      }}
+    ],
+    "relationships": [
+      {{
+        "source_node_id": "F1",
+        "source_node_type": "Company",
+        "target_node_id": "FR2",
+        "target_node_type": "Company",
+        "type": "ORDERS"
+      }},
+      {{
+        "source_node_id": "FR2",
+        "source_node_type": "Company",
+        "target_node_id": "AT",
+        "target_node_type": "Company",
+        "type": "ORDERS"
+      }},
+      {{
+        "source_node_id": "Delivery_1",
+        "source_node_type": "Delivery",
+        "target_node_id": "AT",
+        "target_node_type": "Company",
+        "type": "INITIATED_BY"
+      }},
+      {{
+        "source_node_id": "Delivery_1",
+        "source_node_type": "Delivery",
+        "target_node_id": "Carrier_A",
+        "target_node_type": "Carrier",
+        "type": "TRANSPORTED_BY"
+      }},
+      {{
+        "source_node_id": "Good",
+        "source_node_type": "Product",
+        "target_node_id": "Delivery_1",
+        "target_node_type": "Delivery",
+        "type": "PART_OF"
+      }},
+      {{
+        "source_node_id": "FR1",
+        "source_node_type": "Company",
+        "target_node_id": "France",
+        "target_node_type": "COUNTRY",
+        "type": "LOCATED_IN"
+      }},
+      {{
+        "source_node_id": "FR2",
+        "source_node_type": "Company",
+        "target_node_id": "France",
+        "target_node_type": "COUNTRY",
+        "type": "LOCATED_IN"
+      }},
+      {{
+        "source_node_id": "AT",
+        "source_node_type": "Company",
+        "target_node_id": "Austria",
+        "target_node_type": "COUNTRY",
+        "type": "LOCATED_IN"
+      }}
+    ]
+  }},
+  "parsing_error": null
+}}"""
+
+system_prompt = (
+    "# Knowledge Graph Instructions for GPT-4\n"
+    "## 1. Overview\n"
+    "You are a top-tier algorithm designed for extracting information in structured "
+    "formats to build a knowledge graph.\n"
+    "Try to capture as much information from the text as possible without "
+    "sacrificing accuracy. Do not add any information that is not explicitly "
+    "mentioned in the text.\n"
+    "- **Nodes** represent entities and concepts.\n"
+    "- The aim is to reconstruct a chain transaction in a simple but also comprehensible way, making it\n"
+    "accessible for a further processing to identify the correct tax obligations.\n"
+    "## 2. Labeling Nodes\n"
+    "- **Consistency**: Ensure you use available types for node labels.\n"
+    "Ensure you use basic or elementary types for node labels.\n"
+    "- For example, when you identify an entity representing a person, "
+    "always label it as **'person'**. Avoid using more specific terms "
+    "like 'mathematician' or 'scientist'."
+    "- **Node IDs**: Never utilize integers as node IDs. Node IDs should be "
+    "names or human-readable identifiers found in the text.\n"
+    "- **Relationships** represent connections between entities or concepts.\n"
+    "Ensure consistency and generality in relationship types when constructing "
+    "knowledge graphs. Instead of using specific and momentary types "
+    "such as 'HAS_ORDERED', use more general and timeless relationship types "
+    "like 'ORDER'. Make sure to use general and timeless relationship types!\n"
+    "## 3. Coreference Resolution\n"
+    "- **Maintain Entity Consistency**: When extracting entities, it's vital to "
+    "ensure consistency.\n"
+    'If an entity, such as "Company DE", is mentioned multiple times in the text '
+    'but is referred to by different names or pronouns (e.g., "DE", "the company DE"),'
+    "always use the most complete identifier for that entity throughout the "
+    'knowledge graph. In this example, use "DE" as the entity ID.\n'
+    "- **Maintain Relationship Consistency**: When extracting relationships, it's vital to "
+    "ensure consistency.\n"
+    'If a relation, such as "DELIVER", is mentioned multiple times in the text '
+    'but is referred to by different names or pronouns (e.g., "sends", "delivers", "carries", "transports"),'
+    "always use the allowed identifier from the allowed relationships for that relationship throughout the "
+    'knowledge graph. In this example, use "DELIVER" as the name of the relationship.\n'
+    "Remember, the knowledge graph should be coherent and easily understandable, "
+    "so maintaining consistency in entity references is crucial.\n"
+    "## 4. Completeness\n"
+    "Each chain transaction consists of at least these nodes and relations:\n"
+    '- At least 3 or more different companies and/or entrepreneurs\n'
+    '- One product/good that is the object of the transaction\n'
+    '- At least one node (company, entrepreneur) that is responsible for the transport (e.g organizes the transport '
+    'or instructs another party in doing so\n'
+    '- One product/good that is the object of the whole transaction\n'
+    '- Make sure that every node has a relationship according to the respective allowed relationship per node type.\n'
+    "## 5. Strict Compliance\n"
+    "Adhere to the rules strictly. Non-compliance will result in termination.\n"
+    "## 6. Explanatory example\n"
+    "Der französische Unternehmer FR1 bestellt beim französischen Unternehmer FR2 Ware."
+    "Dieser hat die Ware nicht lagernd und bestellt sie beim österreichischen Unternehmer AT."
+    "AT beauftragt einen Spediteur die Ware direkt zu FR1 nach Frankreich zu befördern."
+    "FR2 gibt seine französische UID-Nummer bekannt.\n"
+    "Solution:\n" + json_string
 )
+
+
+def get_prompt(
+        additional_instructions: str = "",
+) -> ChatPromptTemplate:
+    return ChatPromptTemplate.from_messages(
+        [
+            ("system", system_prompt),
+            (
+                "human",
+                additional_instructions
+                + " Tip: Make sure to answer in the correct format and do "
+                  "not include any explanations. "
+                  "Use the given format to extract information from the "
+                  "following input: {input}",
+            ),
+        ]
+    )
+
+
+missing_good_prompt = ("system: If the good is not explicitly stated, simply generate a node called \"good\" "
+                       "and incorporate it into the graph. Same counts for the delivery, simply generate a node called"
+                       "delivery.")
+
+
+def process_text_with_graph_transformer_v2(text):
+    """Wendet den LLM-Graph-Transformer an und fügt die Graph-ID hinzu."""
+    graph_id = get_next_graph_id()  # Nächste Graph-ID holen
+    allowed_nodes = ["Company", "Delivery", "Invoice", "Order", "Product", "Country", "Carrier"]
+    allowed_relationships = [
+        ("Company", "ORDERS", "Company"),
+        ("Delivery", "INITIATED_BY", "Company"),
+        ("Delivery", "TRANSPORTED_BY", "Company"),
+        ("Delivery", "TRANSPORTED_BY", "Carrier"),
+        ("Company", "LOCATED_IN", "Country"),
+        ("Product", "PART_OF", "Delivery"),
+    ]
+    node_properties = ["country", "UID", "name"]
+    relationship_properties = ["date", "transported_good"]
+
+    llm_transformer_props = LLMGraphTransformer(
+        llm=llm,
+        allowed_nodes=allowed_nodes,
+        allowed_relationships=allowed_relationships,
+        prompt=get_prompt()
+    )
+
+    docs = llm_transformer_props.convert_to_graph_documents([Document(page_content=text)])
+
+    return docs
+
+output = process_text_with_graph_transformer_v2(df.loc[0, 'text'])
+# Wende die Funktion auf die DataFrame-Spalte an
+df.loc[0:2, 'graph'] = df.loc[0:2, 'text'].apply(process_text_with_graph_transformer)
+df.loc[0:5, 'graph2'] = df.loc[0:5, 'text'].apply(process_text_with_graph_transformer_v2)  # standard prompt
+df.loc[0:0, 'graph1'] = df.loc[0:0, 'text'].apply(lambda x: process_text_with_graph_transformer_v2(x))  # hier mit neuer prompt
+# Füge die generierten Graphen zu `graph` hinzu
+delete_graph()
+df.loc[0:0, 'graph3'].apply(lambda x: print(x))
+df.loc[0:0, 'graph1'].apply(lambda x: graph.add_graph_documents(x))
+
+# additional_instructions_good = ("system: First, identify the good of interest and then interpret the whole transaction"
+#                                 "as a pov from the good.")
+# documents = [Document(page_content=reihegeschaeft_bsp + additional_instructions)]
+# data = llm_transformer_props.convert_to_graph_documents(documents)
+
+
+# Run the async function in the event loop
+# asyncio.run(process_graph())
+# # Print GraphDocuments
+# print(format_graph_documents(data))
+
+if __name__ == "__main__":
+    main()
 
 # llm_transformer_tuple = LLMGraphTransformer(
 #     llm=llm,
@@ -379,7 +809,6 @@ print(f"Nodes:{graph_documents_filtered[0].nodes}")
 print(f"Relationships:{graph_documents_filtered[0].relationships}")
 
 graph.add_graph_documents(graph_documents_filtered)
-
 
 # """
 # Third approach with additional node properties
@@ -395,11 +824,3 @@ graph.add_graph_documents(graph_documents_filtered)
 # print(f"Relationships:{graph_documents_props[0].relationships}")
 #
 # graph.add_graph_documents(graph_documents_props)
-
-def delete_graph():
-    query = "MATCH (n) DETACH DELETE n"
-    graph.query(query)
-    print("Graph deleted successfully")
-
-
-delete_graph()
