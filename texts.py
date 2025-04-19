@@ -1,3 +1,9 @@
+text = """
+Marie Curie, born in 1867, was a Polish and naturalised-French physicist and chemist who conducted pioneering research on radioactivity.
+She was the first woman to win a Nobel Prize, the first person to win a Nobel Prize twice, and the only person to win a Nobel Prize in two scientific fields.
+Her husband, Pierre Curie, was a co-winner of her first Nobel Prize, making them the first-ever married couple to win the Nobel Prize and launching the Curie family legacy of five Nobel Prizes.
+She was, in 1906, the first woman to become a professor at the University of Paris.
+"""
 sachverhalt = """
 Unter Berücksichtigung der Angaben in den gegenständlichen vier Anmeldungen, der
 Ermittlungen des Zollamtes Linz Wels (nachfolgend: Zollamt), der im gerichtlichen und
@@ -309,6 +315,12 @@ Dem österreichischen Unternehmer U2 wird die Ware vom Schweizer Unternehmer U1 
 Unternehmer verrechnet die Ware weiter an den deutschen Unternehmer U3. Die Ware gelangt aber direkt vom Schweizer 
 Unternehmer U1 an den italienischen Empfänger U4. Transport wird durch U2 veranlasst.
 """
+reihegeschaeft_bsp = """Ein österreichischer Unternehmer U4 (=Empfänger) bestellt bei seinem österreichischen Lieferanten 
+U3 (=2. Erwerber) eine Maschine. Dieser wiederum bestellt die Maschine beim österreichischen 
+Großhändler U2 (=1. Erwerber). Da der Großhändler U2 die Maschine nicht auf Lager hat, bestellt 
+er diese beim österreichischen Produzenten U1 (=Erstlieferant).
+Der österreichische Großhändler U2 holt die Maschine vom österreichischen 
+Produzenten U1 ab und liefert diese direkt an den österreichischen Unternehmer U4."""
 wko_1 = """
 Der französische Unternehmer FR1 bestellt beim französischen Unternehmer FR2 Ware. 
 Dieser hat die Ware nicht lagernd und bestellt sie beim österreichischen Unternehmer AT. 
