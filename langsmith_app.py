@@ -64,16 +64,3 @@ def accuracy(outputs: dict, reference_outputs: dict) -> bool:
     );
     return response.choices[0].message.parsed.score
 
-
-# After running the evaluation, a link will be provided to view the results in langsmith
-experiment_results = client.evaluate(
-    target,
-    data="Sample dataset",
-    evaluators=[
-        accuracy,
-        # can add multiple evaluators here
-    ],
-    experiment_prefix="first-eval-in-langsmith",
-    max_concurrency=2,
-    con
-)
