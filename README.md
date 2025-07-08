@@ -1,5 +1,7 @@
 # Documentation
 
+![20250708_architecture drawio](https://github.com/user-attachments/assets/279a6e6d-8b24-4a6f-b33b-4544b24923f5)
+
 This application was developed to solve Chain Transaction (CT) Cases under Austrian tax law by the use of LLMs and Knowledge Graphs (KG).
 To this purpose it extracts knowledge from given natural language text and generates a knowlege graph in Neo4j Aura, runs several queries and applies a set of logic-based rules to identify the movable supply of the CT.
 
@@ -33,6 +35,7 @@ Build the graph in Neo4j
 ### clean_statement(statement)
 Clean statement to remove inconsistencies
 :param statement: Statement to clean
+
 :return: Cleaned statement
 
 ### delete_graph()
