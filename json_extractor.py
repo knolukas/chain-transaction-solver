@@ -1,12 +1,16 @@
 import json
 import os
 import ast
+import re
+import sys
 
 import pandas as pd
 from dotenv import load_dotenv
 from langchain_neo4j import Neo4jGraph
 from langsmith import Client
 from graphviz import Digraph
+from selenium.webdriver.support.expected_conditions import element_selection_state_to_be
+
 from tax_scraper import get_tax_rate
 
 #tax_rate = get_tax_rate("austria")
@@ -27,15 +31,113 @@ def build_graph(query):
     print("Graph built successfully")
     return data
 
-query_endkunde = """
-OPTIONAL MATCH (n) 
+
+def replace_name_fields(text):
+    counter = 1
+
+    def replacer(match):
+        nonlocal counter
+        replacement = f"Name:'{counter}'"
+        counter += 1
+        return replacement
+
+    # Regex sucht nach Name:'', Name: "", Name: ''
+    new_text = re.sub(r"Name:\s*['\"]{2}", replacer, text)
+    return new_text
+
+def visualize_graph(graph, tv_name, id_internal, example_name):
+    print("enter visualize_graph")
+    nodes = {}
+
+    cypher_query_nodes = """
+            MATCH (n)
+            RETURN
+              CASE
+                WHEN n.Name IS NOT NULL THEN n.Name
+                ELSE 'Unknown'
+              END AS id,
+              CASE
+                WHEN n.Name IS NOT NULL THEN n.Name + '\\nSitz: ' + n.Sitz + '\\nUID: ' + n.UID
+                WHEN n.Produkt IS NOT NULL THEN 'Transportverantwortung\\nProdukt: ' + n.Produkt
+                ELSE 'Unbekannter Knoten'
+              END AS label
+            """
+
+    result = graph.query(cypher_query_nodes)
+    for record in result:
+        if 'Transportverantwortung' in record["label"]:
+            continue
+        node_id = record["id"]
+        label = record["label"]
+        nodes[node_id] = {"label": label}
+
+    # print(nodes)
+
+    edges = []
+
+    cypher_query_edges = """
+            MATCH (a)-[r]->(b)
+            RETURN
+              CASE
+                WHEN a.Name IS NOT NULL THEN a.Name
+                WHEN a.Produkt IS NOT NULL THEN 'T'
+                ELSE 'Unknown'
+              END AS source,
+              CASE
+                WHEN b.Name IS NOT NULL THEN b.Name
+                WHEN b.Produkt IS NOT NULL THEN 'T'
+                ELSE 'Unknown'
+              END AS target,
+              TYPE(r) +
+                CASE WHEN r.Produkt IS NOT NULL THEN '\\nProdukt: ' + r.Produkt ELSE '' END AS label
+            """
+
+    result = graph.query(cypher_query_edges)
+    for record in result:
+        if record["label"] == "HAT":
+            continue
+        source = record["source"]
+        target = record["target"]
+        label = record["label"]
+        edges.append((source, target, label))
+
+    # print(edges)
+
+    # Graph definieren
+    dot = Digraph(format='pdf')
+    dot.attr(rankdir='LR', size='10')  # Horizontal (Left-to-Right)
+
+    # Knoten hinzufügen
+    for node_id, props in nodes.items():
+        # print('tv_name=' + tv_name)
+        # print('node_id=' + node_id)
+        if node_id == tv_name:
+            dot.node(node_id, label=props['label'], shape='box', color='red', style='filled', fillcolor='lightblue')
+        else:
+            dot.node(node_id, label=props['label'], shape='box', style='filled', fillcolor='lightblue')
+
+    # Kanten hinzufügen
+    for src, dst, label in edges:
+        if 'BEWEGTE_LIEFERUNG' in label:
+            dot.edge(src, dst, label=label, color='red', fontcolor='red')
+        else:
+            dot.edge(src, dst, label=label)
+
+    # Als PDF speichern
+    dot.render(f"{id_internal}_{example_name}_visual_repr", format='pdf', cleanup=True)
+
+    print(f"visualisation done, id {id_internal}_{example_name}")
+
+
+query_letztes_unternehmen = """
+OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]->() 
 WHERE NOT n:Transportverantwortung AND NOT EXISTS { MATCH ()-[:BESTELLUNG]->(n) } 
 
 RETURN COALESCE(n, "Inconsistent, no solution.") AS result
 """
 
-query_hersteller = """
-OPTIONAL MATCH (n) 
+query_erstes_unternehmen = """
+OPTIONAL MATCH ()-[:BESTELLUNG]->(n:Unternehmen)
 WHERE NOT n:Transportverantwortung AND NOT EXISTS { MATCH (n)-[:BESTELLUNG]->() } 
 
 RETURN COALESCE(n, "Inconsistent, no solution.") AS result"""
@@ -79,46 +181,42 @@ query_anzahl_produkte = """
     WHERE type(r) IN ['BESTELLUNG', 'WARENBEWEGUNG']
     RETURN count(DISTINCT r.Produkt) AS anzahl_unterschiedlicher_produkte"""
 
+#only-jelly-47_REALWORLD.csv
+#memorable-muscle-25_DUPONT.csv
+filename = "pg__voo5__gpt-4.1__5bc806a6.csv"
+df_langsmith = pd.read_csv("H:/Users/Lukas/OneDrive/Masterarbeit - LLMs in VAT - Knogler Lukas/Ergebnisse/" + filename)
 
-filename = "pg__voo5__gpt-4.1__c0c14ef7.csv"
-df_langsmith = pd.read_csv("H:/Users/Lukas/Downloads/" + filename)
-# internal_ids = [14, 9, 31, 13, 7, 6, 4, 1, 10, 35, 17, 30, 27, 5, 18, 32, 34, 2, 36, 20, 29, 28, 37, 38, 3, 39, 19, 11,
-#                 8, 15, 25, 33, 26, 24, 23, 12, 16, 22, 21]
-#
-# quelle = [
-#     "KOLLMANN", "KOLLMANN", "KOLLMANN", "KOLLMANN", "KOLLMANN",
-#     "KOLLMANN", "KOLLMANN", "KOLLMANN", "KOLLMANN", "KOLLMANN",
-#     "KOLLMANN", "KOLLMANN", "KOLLMANN", "KOLLMANN", "KOLLMANN",
-#     "KOLLMANN", "KOLLMANN", "KOLLMANN", "KOLLMANN", "KOLLMANN",
-#     "REALCASES", "REALCASES", "REALCASES", "REALCASES", "REALCASES",
-#     "REALCASES", "REALCASES", "REALCASES", "REALCASES", "REALCASES",
-#     "REALCASES", "REALCASES", "REALCASES", "REALCASES", "REALCASES",
-#     "REALCASES", "REALCASES", "REALCASES", "REALCASES"
-# ]
-# df_langsmith.insert(loc=0,column='interne_ID',value=internal_ids)
-# df_langsmith = df_langsmith.sort_values(by=['interne_ID'], ascending=[True])
-# df_langsmith.insert(loc=1,column='quelle',value=quelle)
-# df_langsmith = df_langsmith.sort_index(ascending=[True])
+reference_filename = "Beispiele_RG_test_set.xlsx"
+df_database = pd.read_excel("H:/Users/Lukas/OneDrive/Masterarbeit - LLMs in VAT - Knogler Lukas/" + reference_filename)
+
+df_merged = df_langsmith.merge(df_database[['id','internal_id', 'musterlösung_bewegte_lieferung', 'quelle', 'name']], how="left",on='id')
+
+df_langsmith = df_merged.copy()
+
 graph = Neo4jGraph(refresh_schema=False)
 
-
-
 full_df = df_langsmith.index
-selection = range(12, 13)
+#selection = range(13, 14)
 
 
 for idx in full_df:
     try:
-        #idx = 0
+        #idx = 9
         delete_graph()
         df_langsmith.at[idx, 'outputs_decoded'] = df_langsmith.at[idx, 'outputs'].encode().decode('unicode_escape')
         df_langsmith.at[idx, 'inputs_decoded'] = df_langsmith.at[idx, 'inputs'].encode().decode('unicode_escape')
-        print(f"start with id: {idx} \n")
+        print(f"\nstart with id: {idx}")
         try:
             data = json.loads(df_langsmith.at[idx, 'outputs'])
             #print(data)
         except json.JSONDecodeError as e:
             print(f"JSONDecodeError: {e}")
+            continue
+
+        quelle = df_langsmith.at[idx, 'quelle']
+        name = df_langsmith.at[idx, 'name']
+        example_name = f"{quelle}_{name}"
+        id_internal = df_langsmith.at[idx, 'internal_id']
 
         cypher_statement = data['Cypher Anweisungen']
         cypher_statement = cypher_statement.replace("\\n", "\n")
@@ -126,17 +224,19 @@ for idx in full_df:
         cypher_statement = cypher_statement.replace("name", "Name")
         cypher_statement = cypher_statement.replace("sitz", "Sitz")
         cypher_statement = cypher_statement.replace("uid", "UID")
+        cypher_statement = re.sub(r":(?:[A-Za-z0-9_]+)?(Transportverantwortung)", r":\1", cypher_statement)
+        cypher_statement = replace_name_fields(cypher_statement)
         #print(cypher_statement)
         df_langsmith.at[idx, 'cypher_statements'] = cypher_statement
         graph_data = build_graph(cypher_statement)
 
-        erstes_unternehmen = graph.query(query_hersteller)
+        erstes_unternehmen = graph.query(query_erstes_unternehmen)
         df_langsmith.at[idx, 'erstes Unternehmen'] = str(erstes_unternehmen)
         df_langsmith.at[idx, 'erstes Unternehmen'] = df_langsmith.at[idx, 'erstes Unternehmen'].replace("'", '"')
         erstes_unternehmen_data = json.loads(df_langsmith.at[idx, 'erstes Unternehmen'])
         erstes_unternehmen_name = erstes_unternehmen_data[0]['result']['Name']
 
-        letztes_unternehmen = graph.query(query_endkunde)
+        letztes_unternehmen = graph.query(query_letztes_unternehmen)
         df_langsmith.at[idx, 'letztes Unternehmen'] = str(letztes_unternehmen)
         df_langsmith.at[idx, 'letztes Unternehmen'] = df_langsmith.at[idx, 'letztes Unternehmen'].replace("'", '"')
         letztes_unternehmen_data = json.loads(df_langsmith.at[idx, 'letztes Unternehmen'])
@@ -144,7 +244,7 @@ for idx in full_df:
 
         query_erster_umsatz = f"""
            //variable für Name "erstes Unternehmen"
-           OPTIONAL MATCH (n:Unternehmen {{Name: "{erstes_unternehmen_name}"}})-[:BESTELLUNG]-(m:Unternehmen)
+           OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]->(m:Unternehmen {{Name: "{erstes_unternehmen_name}"}})
            RETURN n, 'BESTELLUNG' as Info, m"""
         erster_umsatz = graph.query(query_erster_umsatz)
         df_langsmith.at[idx, 'erster_umsatz'] = str(erster_umsatz)
@@ -152,7 +252,7 @@ for idx in full_df:
 
         query_letzter_umsatz = f"""
             //variable für Name "letztes Unternehmen"
-            OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]-(m:Unternehmen {{Name: "{letztes_unternehmen_name}"}})
+            OPTIONAL MATCH (n:Unternehmen {{Name: "{letztes_unternehmen_name}"}})-[:BESTELLUNG]->(m:Unternehmen)
             RETURN n, 'BESTELLUNG' as Info, m"""
         letzter_umsatz = graph.query(query_letzter_umsatz)
         df_langsmith.at[idx, 'letzter_umsatz'] = str(letzter_umsatz)
@@ -172,6 +272,9 @@ for idx in full_df:
         anzahl_unternehmen = graph.query("MATCH (n:Unternehmen) RETURN count(n) AS anzahl_unternehmen")
         anzahl_warenbewegungen = graph.query("MATCH (:Unternehmen)-[r:WARENBEWEGUNG]->(:Unternehmen) RETURN count(r) AS anzahl_warenbewegungen")
         anzahl_unterschiedlicher_produkte = graph.query(query_anzahl_produkte)
+        anzahl_transportverantwortungen = graph.query("MATCH (:Unternehmen)-[r:HAT]-(:Transportverantwortung) RETURN count(r) AS anzahl_transportverantwortungen")
+        df_langsmith.at[idx, 'bewegte lieferung'] = "Nicht gefunden."
+
 
         error_flag = False
         error_text = ""
@@ -190,37 +293,38 @@ for idx in full_df:
         if anzahl_warenbewegungen[0]['anzahl_warenbewegungen'] != 1:
             error_flag = True
             error_text = error_text + "Es gibt mehrere Warenbewegungen (oder keine).\n"
+        if anzahl_transportverantwortungen[0]['anzahl_transportverantwortungen'] != 1:
+            error_flag = True
+            error_text = error_text + "Transportverantwortung nicht eindeutig.\n"
+            tv_name = "nicht definiert"
+        else:
+            tv_name = transportverantwortung[0]['n']['Name']
         if error_flag:
             df_langsmith.at[idx, 'ist_reihengeschäft'] = "False"
             df_langsmith.at[idx, 'ist_reihengeschäft_anmerkung'] = error_text
+            bewegte_lieferung_query = f'\n//{error_text}'
+            df_langsmith.at[idx, 'cypher_statements'] = (df_langsmith.at[idx, 'cypher_statements']
+                                                         + ';\n'
+                                                         + bewegte_lieferung_query)
+            df_langsmith.at[idx, 'ergebnis_bewegte_lieferung'] = f"Kein RG erkannt"
+
         else:
             df_langsmith.at[idx, 'ist_reihengeschäft'] = "True"
             df_langsmith.at[idx, 'ist_reihengeschäft_anmerkung'] = error_text
 
-        transportverantwortung_str = df_langsmith.at[idx, 'transportverantwortung']
-        bewegte_lieferung_query = "//Bewegte Lieferung nicht definiert"
-        start = "Start"
-        ziel = "Ziel"
-        tv_name = "unknown"
+            bewegte_lieferung_query = "//Bewegte Lieferung nicht definiert"
+            start = "Start"
+            ziel = "Ziel"
 
-        if transportverantwortung_str == "[]":
-            df_langsmith.at[idx, 'bewegte lieferung'] = "Keine Transportverantwortung festgestellt. Prüfung notwendig."
-            #continue
-        else:
-            tv_data = ast.literal_eval(transportverantwortung_str)
-            if len(tv_data) > 1:
-                df_langsmith.at[idx, 'bewegte lieferung'] = "Transportverantwortung nicht eindeutig. Prüfung notwendig"
-                #continue
-            tv_name = tv_data[0]['n']['Name']
             if tv_name == letztes_unternehmen_name:
                 df_langsmith.at[idx, 'bewegte lieferung'] = "Letzter Umsatz \n" + str(letzter_umsatz)
-                start = letzter_umsatz[0]['n']['Name']
-                ziel = tv_name
+                start = letzter_umsatz[0]['m']['Name']
+                ziel = letzter_umsatz[0]['n']['Name']
 
             elif tv_name == erstes_unternehmen_name:
                 df_langsmith.at[idx, 'bewegte lieferung'] = "Erster Umsatz \n" + str(erster_umsatz)
-                start = tv_name
-                ziel = letzter_umsatz[0]['n']['Name']
+                start = erster_umsatz[0]['m']['Name']
+                ziel = erster_umsatz[0]['n']['Name']
 
             else:
                 query_zwischen_umsatz = f"""
@@ -228,12 +332,8 @@ for idx in full_df:
                             OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]->(m:Unternehmen {{Name: "{tv_name}"}})
                             RETURN n, 'BESTELLUNG' as Info, m"""
                 zwischen_umsatz = graph.query(query_zwischen_umsatz)
-                df_langsmith.at[idx, 'zwischen_umsatz'] = str(zwischen_umsatz)
-                df_langsmith.at[idx, 'zwischen_umsatz'] = df_langsmith.at[idx, 'zwischen_umsatz'].replace("'", '"')
-
-                zwischen_data = ast.literal_eval(str(zwischen_umsatz))
-                zwischen_name = zwischen_data[0]['m']['Name']
-
+                # df_langsmith.at[idx, 'zwischen_umsatz'] = str(zwischen_umsatz)
+                # df_langsmith.at[idx, 'zwischen_umsatz'] = df_langsmith.at[idx, 'zwischen_umsatz'].replace("'", '"')
 
 
                 query_vorangegangener_umsatz = f"""
@@ -243,17 +343,8 @@ for idx in full_df:
                 vorangegangener_umsatz = graph.query(query_vorangegangener_umsatz)
 
                 abgangsstaat = graph.query(query_finde_abgangsstaat)
-                #print(query_finde_abgangsstaat)
-                #print('\n')
-                #print(abgangsstaat)
-
-                tv_uid = tv_data[0]['n']['UID']
-
-
-                # client = Client(api_key=LANGSMITH_API_KEY)
-                # prompt = client.pull_prompt("uid_estimator", include_model=True)
-                # response = prompt.invoke({"Land": f"{abgangsstaat}", "Nummer": f"{tv_uid}"})
-                #print(response)
+                abgangsstaat = abgangsstaat[0]['n.Sitz']
+                tv_uid = transportverantwortung[0]['n']['UID'][:2]
 
                 if tv_uid == abgangsstaat:
                     df_langsmith.at[idx, 'bewegte lieferung'] = (("Ja, UID gleich wie Abgangsstaat."
@@ -262,16 +353,8 @@ for idx in full_df:
                                                                  + str(zwischen_umsatz))
                     start = zwischen_umsatz[0]['m']['Name']
                     ziel = zwischen_umsatz[0]['n']['Name']
-
-                # elif tv_uid != abgangsstaat:
-                #     df_langsmith.at[idx, 'bewegte lieferung'] = (("Nein, UID nicht gleich Abgangsstaat."
-                #                                                  "\nUmsatz zum Zwischenhändler. \n")
-                #                                                  + str(vorangegangener_umsatz))
-                #     start = vorangegangener_umsatz[0]['m']['Name']
-                #     ziel = vorangegangener_umsatz[0]['n']['Name']
-
                 else:
-                    df_langsmith.at[idx, 'bewegte lieferung'] = (("Unklar, andere oder gar keine UID."
+                    df_langsmith.at[idx, 'bewegte lieferung'] = (("Andere oder gar keine UID."
                                                                   f"\n{tv_uid} != {abgangsstaat}"
                                                                  "\nUmsatz zum Zwischenhändler. \n")
                                                                  + str(vorangegangener_umsatz))
@@ -279,102 +362,44 @@ for idx in full_df:
                     ziel = vorangegangener_umsatz[0]['n']['Name']
 
 
-        bewegte_lieferung_query = (f'\nMATCH (a:Unternehmen {{Name: "{start}"}}),'
-                                   f'(b:Unternehmen {{Name: "{ziel}"}})'
-                                   '\nCREATE (a)-[:BEWEGTE_LIEFERUNG]->(b)')
-        df_langsmith.at[idx, 'cypher_statements'] = (df_langsmith.at[idx, 'cypher_statements']
-                                                     + ';'
-                                                     + bewegte_lieferung_query)
+            bewegte_lieferung_query = (f'\nMATCH (a:Unternehmen {{Name: "{start}"}}),'
+                                       f'(b:Unternehmen {{Name: "{ziel}"}})'
+                                       '\nCREATE (a)-[:BEWEGTE_LIEFERUNG]->(b)')
+            df_langsmith.at[idx, 'cypher_statements'] = (df_langsmith.at[idx, 'cypher_statements']
+                                                         + ';\n'
+                                                         + bewegte_lieferung_query)
+            graph.query(bewegte_lieferung_query)
 
-        zwischenergebnis = graph.query(bewegte_lieferung_query)
-        #print(zwischenergebnis)
-
-        nodes = {}
-
-        cypher_query_nodes = """
-        MATCH (n)
-        RETURN
-          CASE
-            WHEN n.Name IS NOT NULL THEN n.Name
-            ELSE 'Unknown'
-          END AS id,
-          CASE
-            WHEN n.Name IS NOT NULL THEN n.Name + '\\nSitz: ' + n.Sitz + '\\nUID: ' + n.UID
-            WHEN n.Produkt IS NOT NULL THEN 'Transportverantwortung\\nProdukt: ' + n.Produkt
-            ELSE 'Unbekannter Knoten'
-          END AS label
-        """
-
-        result = graph.query(cypher_query_nodes)
-        for record in result:
-            if 'Transportverantwortung' in record["label"]:
-                continue
-            node_id = record["id"]
-            label = record["label"]
-            nodes[node_id] = {"label": label}
-
-        #print(nodes)
-
-        edges = []
-
-        cypher_query_edges = """
-        MATCH (a)-[r]->(b)
-        RETURN
-          CASE
-            WHEN a.Name IS NOT NULL THEN a.Name
-            WHEN a.Produkt IS NOT NULL THEN 'T'
-            ELSE 'Unknown'
-          END AS source,
-          CASE
-            WHEN b.Name IS NOT NULL THEN b.Name
-            WHEN b.Produkt IS NOT NULL THEN 'T'
-            ELSE 'Unknown'
-          END AS target,
-          TYPE(r) +
-            CASE WHEN r.Produkt IS NOT NULL THEN '\\nProdukt: ' + r.Produkt ELSE '' END AS label
-        """
+            df_langsmith.at[idx, 'ergebnis_bewegte_lieferung'] = f"{start}->{ziel}"
 
 
-        result = graph.query(cypher_query_edges)
-        for record in result:
-            if record["label"] == "HAT":
-                continue
-            source = record["source"]
-            target = record["target"]
-            label = record["label"]
-            edges.append((source, target, label))
+        if df_langsmith.at[idx, 'ergebnis_bewegte_lieferung'] == df_langsmith.at[idx, 'musterlösung_bewegte_lieferung']:
+            df_langsmith.at[idx, 'vergleich'] = "richtig"
+        else:
+            df_langsmith.at[idx, 'vergleich'] = "prüfung"
 
-        #print(edges)
-
-        # Graph definieren
-        dot = Digraph(format='pdf')
-        dot.attr(rankdir='LR', size='10')  # Horizontal (Left-to-Right)
-
-
-        # Knoten hinzufügen
-        for node_id, props in nodes.items():
-            #print('tv_name=' + tv_name)
-            #print('node_id=' + node_id)
-            if node_id == tv_name:
-                dot.node(node_id, label=props['label'], shape='box', color='red', style='filled', fillcolor='lightblue')
-            else:
-                dot.node(node_id, label=props['label'], shape='box', style='filled', fillcolor='lightblue')
-
-        # Kanten hinzufügen
-        for src, dst, label in edges:
-            if 'BEWEGTE_LIEFERUNG' in label:
-                dot.edge(src, dst, label=label, color='red', fontcolor='red')
-            else:
-                dot.edge(src, dst, label=label)
-
-        # Als PDF speichern
-        dot.render(f"neo4j_graph_id_{idx}", format='pdf', cleanup=True)
-
-
+        visualize_graph(graph, tv_name, id_internal, example_name)
 
     except Exception as e:
         print(f"An unexpected error occurred: {e}, at ID:{idx}")
+        e_type, e_object, e_traceback = sys.exc_info()
 
-df_langsmith.insert(loc=15, column='prüfung',value='')
+        e_filename = os.path.split(
+            e_traceback.tb_frame.f_code.co_filename
+        )[1]
+
+        e_message = str(e)
+
+        e_line_number = e_traceback.tb_lineno
+
+        print(f'exception type: {e_type}')
+
+        print(f'exception filename: {e_filename}')
+
+        print(f'exception line number: {e_line_number}')
+
+        print(f'exception message: {e_message}')
+
 timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M')
-df_langsmith.to_excel(f'dataframes/{timestamp}_{filename}_df_with_query_outputs.xlsx', index=True)
+df_langsmith.to_excel(f'H:/Users/Lukas/OneDrive/Masterarbeit - LLMs in VAT - Knogler Lukas/Ergebnisse/{filename}_{timestamp}_df_with_query_outputs.xlsx', index=True)
+
