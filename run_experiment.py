@@ -1,3 +1,7 @@
+"""
+This module is used to access Langsmith and to process natural language cases with the configured LLM.
+"""
+
 import asyncio
 from langsmith import Client
 from langchain_core.rate_limiters import InMemoryRateLimiter
