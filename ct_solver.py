@@ -420,7 +420,7 @@ for idx in full_df:
             df_langsmith.at[idx, 'result'] = "check manually"
 
         #Generate visualization#
-        #visualize_graph(graph, tr_name, id_internal, example_name)
+        visualize_graph(graph, tr_name, id_internal, example_name)
 
     except Exception as e:
         print(f"An unexpected error occurred: {e}, at ID:{idx}")
