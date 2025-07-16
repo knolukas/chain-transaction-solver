@@ -8,10 +8,11 @@ import json
 import os
 import re
 import sys
+
 import pandas as pd
 from dotenv import load_dotenv
-from langchain_neo4j import Neo4jGraph
 from graphviz import Digraph
+from langchain_neo4j import Neo4jGraph
 
 #Initialize credentials and access
 load_dotenv('.env')
@@ -21,7 +22,7 @@ os.environ["NEO4J_PASSWORD"] = os.getenv("NEO4J_PASSWORD")
 LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
 
 #Global variable
-tv_name = "nicht definiert"
+tr_name = "not defined"
 
 #Define functions
 def delete_graph():
@@ -51,7 +52,7 @@ def replace_name_fields(text):
     """
     counter = 1
 
-    def replacer(match):
+    def replacer():
         nonlocal counter
         replacement = f"Name:'{counter}'"
         counter += 1
@@ -74,7 +75,7 @@ def clean_statement(statement):
                  .replace("uid", "UID"))
     statement = re.sub(r":(?:[A-Za-z0-9_]+)?(Transportverantwortung)", r":\1", statement)
     statement = replace_name_fields(statement)
-    print(statement)
+    #print(statement)
     return statement
 
 def apply_logic_based_rules(graph, df):
@@ -90,59 +91,32 @@ def apply_logic_based_rules(graph, df):
     :return: none
     """
 
-    global tv_name
+    global tr_name
 
     ###########################################################
     #First, run queries to identify and extract required data #
     ###########################################################
 
-    erstes_unternehmen = graph.query(query_erstes_unternehmen)
-    df.at[idx, 'erstes Unternehmen'] = str(erstes_unternehmen)
-    df.at[idx, 'erstes Unternehmen'] = df.at[idx, 'erstes Unternehmen'].replace("'", '"')
-    erstes_unternehmen_data = json.loads(df.at[idx, 'erstes Unternehmen'])
-    erstes_unternehmen_name = erstes_unternehmen_data[0]['result']['Name']
+    first_enterprise = graph.query(query_first_enterprise)
+    first_enterprise_name = first_enterprise[0]['result']['Name']
+    df.at[idx, 'first_enterprise'] = str(first_enterprise_name)
 
-    letztes_unternehmen = graph.query(query_letztes_unternehmen)
-    df.at[idx, 'letztes Unternehmen'] = str(letztes_unternehmen)
-    df.at[idx, 'letztes Unternehmen'] = df.at[idx, 'letztes Unternehmen'].replace("'", '"')
-    letztes_unternehmen_data = json.loads(df.at[idx, 'letztes Unternehmen'])
-    letztes_unternehmen_name = letztes_unternehmen_data[0]['result']['Name']
+    last_enterprise = graph.query(query_last_enterprise)
+    last_enterprise_name = last_enterprise[0]['result']['Name']
+    df.at[idx, 'last_enterprise'] = str(last_enterprise_name)
 
-    query_erster_umsatz = f"""
-               //variable für Name "erstes Unternehmen"
-               OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]->(m:Unternehmen {{Name: "{erstes_unternehmen_name}"}})
-               RETURN n, 'BESTELLUNG' as Info, m"""
-    erster_umsatz = graph.query(query_erster_umsatz)
-    df.at[idx, 'erster_umsatz'] = str(erster_umsatz)
-    df.at[idx, 'erster_umsatz'] = df.at[idx, 'erster_umsatz'].replace("'", '"')
+    transport_of_goods = graph.query(query_find_transport_of_goods)
+    start_transport_name = transport_of_goods[0]['n']['Name']
+    destination_transport_name = transport_of_goods[0]['m']['Name']
+    df.at[idx, 'transport_of_goods'] = str(start_transport_name + "->" + destination_transport_name)
 
-    query_letzter_umsatz = f"""
-                //variable für Name "letztes Unternehmen"
-                OPTIONAL MATCH (n:Unternehmen {{Name: "{letztes_unternehmen_name}"}})-[:BESTELLUNG]->(m:Unternehmen)
-                RETURN n, 'BESTELLUNG' as Info, m"""
-    letzter_umsatz = graph.query(query_letzter_umsatz)
-    df.at[idx, 'letzter_umsatz'] = str(letzter_umsatz)
-    df.at[idx, 'letzter_umsatz'] = df.at[idx, 'letzter_umsatz'].replace("'", '"')
+    no_of_orders = graph.query(query_no_of_orders)
+    no_of_enterprises = graph.query(query_no_of_enterprises)
+    no_of_transports_of_goods = graph.query(query_no_of_transports_of_goods)
+    no_of_products = graph.query(query_no_of_products)
+    no_of_tr = graph.query(query_no_of_tr)
 
-    warenbewegung = graph.query(query_finde_warenbewegung)
-    df.at[idx, 'warenbewegung'] = str(warenbewegung)
-    df.at[idx, 'warenbewegung'] = df.at[idx, 'warenbewegung'].replace("'", '"')
-    start_warenbewegung_name = warenbewegung[0]['n']['Name']
-    ziel_warenbewegung_name = warenbewegung[0]['m']['Name']
-
-    transportverantwortung = graph.query(query_transportverantwortung)
-    df.at[idx, 'transportverantwortung'] = str(transportverantwortung)
-    df.at[idx, 'transportverantwortung'] = df.at[idx, 'transportverantwortung'].replace("'", '"')
-
-    anzahl_bestellungen = graph.query(
-        "MATCH (:Unternehmen)-[r:BESTELLUNG]->(:Unternehmen) RETURN count(r) AS anzahl_bestellungen")
-    anzahl_unternehmen = graph.query("MATCH (n:Unternehmen) RETURN count(n) AS anzahl_unternehmen")
-    anzahl_warenbewegungen = graph.query(
-        "MATCH (:Unternehmen)-[r:WARENBEWEGUNG]->(:Unternehmen) RETURN count(r) AS anzahl_warenbewegungen")
-    anzahl_unterschiedlicher_produkte = graph.query(query_anzahl_produkte)
-    anzahl_transportverantwortungen = graph.query(
-        "MATCH (:Unternehmen)-[r:HAT]-(:Transportverantwortung) RETURN count(r) AS anzahl_transportverantwortungen")
-    df.at[idx, 'bewegte lieferung'] = "Nicht gefunden."
+    df.at[idx, 'moved_supply'] = "Not indetified."
 
 
     ###########################################################
@@ -151,100 +125,116 @@ def apply_logic_based_rules(graph, df):
     error_flag = False
     error_text = ""
     if not (
-            erstes_unternehmen_name == start_warenbewegung_name and letztes_unternehmen_name == ziel_warenbewegung_name):
+            first_enterprise_name == start_transport_name and last_enterprise_name == destination_transport_name):
         error_flag = True
-        error_text = error_text + "Keine Übergabe vom letzten zum ersten Unternehmen.\n"
-    if anzahl_bestellungen[0]['anzahl_bestellungen'] < 2:
+        error_text = error_text + "No transport of goods between last and first enterprise.\n"
+    if no_of_orders[0]['no_of_orders'] < 2:
         error_flag = True
-        error_text = error_text + "Weniger als 2 Bestellungen.\n"
-    if anzahl_unternehmen[0]['anzahl_unternehmen'] < 3:
+        error_text = error_text + "Less than 2 orders.\n"
+    if no_of_enterprises[0]['no_of_enterprises'] < 3:
         error_flag = True
-        error_text = error_text + "Es sind weniger als 3 Unternehmen involviert.\n"
-    if anzahl_unterschiedlicher_produkte[0]['anzahl_unterschiedlicher_produkte'] > 1:
+        error_text = error_text + "Less than 3 enterprises.\n"
+    if no_of_products[0]['no_of_products'] > 1:
         error_flag = True
-        error_text = error_text + "Es werden unterschiedliche Produkte gehandelt.\n"
-    if anzahl_warenbewegungen[0]['anzahl_warenbewegungen'] != 1:
+        error_text = error_text + "Different products traded.\n"
+    if no_of_transports_of_goods[0]['no_of_transports_of_goods'] != 1:
         error_flag = True
-        error_text = error_text + "Es gibt mehrere Warenbewegungen (oder keine).\n"
-    if anzahl_transportverantwortungen[0]['anzahl_transportverantwortungen'] != 1:
+        error_text = error_text + "More than one transport of goods (or none).\n"
+    if no_of_tr[0]['no_of_tr'] != 1:
         error_flag = True
-        error_text = error_text + "Transportverantwortung nicht eindeutig.\n"
-        tv_name = "nicht definiert"
+        error_text = error_text + "Transport responsibility is not defined.\n"
+        tr_name = "not defined"
     else:
-        tv_name = transportverantwortung[0]['n']['Name']
+        transport_responsibility = graph.query(query_transport_responsibility)
+        tr_name = transport_responsibility[0]['n']['Name']
+
+    df.at[idx, 'transport_responsibility'] = str(tr_name)
 
     if error_flag:
-        df.at[idx, 'ist_reihengeschäft'] = "False"
-        df.at[idx, 'ist_reihengeschäft_anmerkung'] = error_text
-        bewegte_lieferung_query = f'\n//{error_text}'
+        df.at[idx, 'is_chain_transaction'] = "False"
+        df.at[idx, 'is_chain_transaction_comment'] = error_text
+        query_movable_supply = f'\n//{error_text}'
         df.at[idx, 'cypher_statements'] = (df.at[idx, 'cypher_statements']
                                                      + ';\n'
-                                                     + bewegte_lieferung_query)
-        df.at[idx, 'ergebnis_bewegte_lieferung'] = f"Kein RG erkannt"
+                                                     + query_movable_supply)
+        df.at[idx, 'identified_movable_supply'] = f"No CT identified"
 
 
     #####################################
     #Third, identify the movable supply #
     #####################################
+
     else:
-        df.at[idx, 'ist_reihengeschäft'] = "True"
-        df.at[idx, 'ist_reihengeschäft_anmerkung'] = error_text
+        query_first_supply = f"""
+                       OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]->(m:Unternehmen {{Name: "{first_enterprise_name}"}})
+                       RETURN n, 'BESTELLUNG' as Info, m"""
+        first_supply = graph.query(query_first_supply)
+        df.at[idx, 'first_supply'] = str(first_supply[0]['m']['Name'] + "->" + first_supply[0]['n']['Name'])
 
-        if tv_name == letztes_unternehmen_name:
-            df.at[idx, 'bewegte lieferung'] = "Letzter Umsatz \n" + str(letzter_umsatz)
-            start = letzter_umsatz[0]['m']['Name']
-            ziel = letzter_umsatz[0]['n']['Name']
+        query_last_supply = f"""
+                        OPTIONAL MATCH (n:Unternehmen {{Name: "{last_enterprise_name}"}})-[:BESTELLUNG]->(m:Unternehmen)
+                        RETURN n, 'BESTELLUNG' as Info, m"""
+        last_supply = graph.query(query_last_supply)
+        df.at[idx, 'last_supply'] = str(last_supply[0]['m']['Name'] + "->" + last_supply[0]['n']['Name'])
 
-        elif tv_name == erstes_unternehmen_name:
-            df.at[idx, 'bewegte lieferung'] = "Erster Umsatz \n" + str(erster_umsatz)
-            start = erster_umsatz[0]['m']['Name']
-            ziel = erster_umsatz[0]['n']['Name']
+        df.at[idx, 'is_chain_transaction'] = "True"
+        df.at[idx, 'is_chain_transaction_comment'] = error_text
+
+        if tr_name == last_enterprise_name:
+            df.at[idx, 'moved_supply'] = "Letzter Umsatz \n" + str(last_supply)
+            start = last_supply[0]['m']['Name']
+            ziel = last_supply[0]['n']['Name']
+
+        elif tr_name == first_enterprise_name:
+            df.at[idx, 'moved_supply'] = "Erster Umsatz \n" + str(first_supply)
+            start = first_supply[0]['m']['Name']
+            ziel = first_supply[0]['n']['Name']
 
         else:
             query_zwischen_umsatz = f"""
-                                //variable für Name "zwischenhändler"
-                                OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]->(m:Unternehmen {{Name: "{tv_name}"}})
+                                OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]->(m:Unternehmen {{Name: "{tr_name}"}})
                                 RETURN n, 'BESTELLUNG' as Info, m"""
-            zwischen_umsatz = graph.query(query_zwischen_umsatz)
+            intermediate_supply = graph.query(query_zwischen_umsatz)
             # df.at[idx, 'zwischen_umsatz'] = str(zwischen_umsatz)
             # df.at[idx, 'zwischen_umsatz'] = df.at[idx, 'zwischen_umsatz'].replace("'", '"')
 
             query_vorangegangener_umsatz = f"""
-                                                //variable für Name "zwischenhändler"
-                                                OPTIONAL MATCH (n:Unternehmen {{Name: "{tv_name}"}})-[:BESTELLUNG]->(m:Unternehmen)
+                                                OPTIONAL MATCH (n:Unternehmen {{Name: "{tr_name}"}})-[:BESTELLUNG]->(m:Unternehmen)
                                                 RETURN n, 'BESTELLUNG' as Info, m"""
+
             vorangegangener_umsatz = graph.query(query_vorangegangener_umsatz)
 
-            abgangsstaat = graph.query(query_finde_abgangsstaat)
-            abgangsstaat = abgangsstaat[0]['n.Sitz']
-            tv_uid = transportverantwortung[0]['n']['UID'][:2]
-
-            if tv_uid == abgangsstaat:
-                df.at[idx, 'bewegte lieferung'] = (("Ja, UID gleich wie Abgangsstaat."
-                                                              f"\n{tv_uid} == {abgangsstaat}"
+            dispatch_country = graph.query(query_find_dispatch_country)
+            dispatch_country = dispatch_country[0]['n.Sitz']
+            tv_uid = transport_responsibility[0]['n']['UID'][:2]
+ 
+            if tv_uid == dispatch_country:
+                df.at[idx, 'moved_supply'] = (("Ja, UID gleich wie Abgangsstaat."
+                                                              f"\n{tv_uid} == {dispatch_country}"
                                                               "\nUmsatz des Zwischenhändlers\n")
-                                                             + str(zwischen_umsatz))
-                start = zwischen_umsatz[0]['m']['Name']
-                ziel = zwischen_umsatz[0]['n']['Name']
+                                                             + str(intermediate_supply))
+                start = intermediate_supply[0]['m']['Name']
+                ziel = intermediate_supply[0]['n']['Name']
             else:
-                df.at[idx, 'bewegte lieferung'] = (("Andere oder gar keine UID."
-                                                              f"\n{tv_uid} != {abgangsstaat}"
+                df.at[idx, 'moved_supply'] = (("Andere oder gar keine UID."
+                                                              f"\n{tv_uid} != {dispatch_country}"
                                                               "\nUmsatz zum Zwischenhändler. \n")
                                                              + str(vorangegangener_umsatz))
                 start = vorangegangener_umsatz[0]['m']['Name']
                 ziel = vorangegangener_umsatz[0]['n']['Name']
 
-        bewegte_lieferung_query = (f'\nMATCH (a:Unternehmen {{Name: "{start}"}}),'
+
+        query_movable_supply = (f'\nMATCH (a:Unternehmen {{Name: "{start}"}}),'
                                    f'(b:Unternehmen {{Name: "{ziel}"}})'
                                    '\nCREATE (a)-[:BEWEGTE_LIEFERUNG]->(b)')
         df.at[idx, 'cypher_statements'] = (df.at[idx, 'cypher_statements']
                                                      + ';\n'
-                                                     + bewegte_lieferung_query)
+                                                     + query_movable_supply)
         ################################################
         #Add the movable supply to the knowledge graph #
         ################################################
-        graph.query(bewegte_lieferung_query)
-        df.at[idx, 'ergebnis_bewegte_lieferung'] = f"{start}->{ziel}"
+        graph.query(query_movable_supply)
+        df.at[idx, 'identified_movable_supply'] = f"{start}->{ziel}"
 
 def visualize_graph(graph, tv_name, id_internal, example_name):
     """
@@ -258,7 +248,7 @@ def visualize_graph(graph, tv_name, id_internal, example_name):
     print("enter visualize_graph")
     nodes = {}
 
-    cypher_query_nodes = """
+    query_find_nodes = """
             MATCH (n)
             RETURN
               CASE
@@ -272,7 +262,7 @@ def visualize_graph(graph, tv_name, id_internal, example_name):
               END AS label
             """
 
-    result = graph.query(cypher_query_nodes)
+    result = graph.query(query_find_nodes)
     for record in result:
         if 'Transportverantwortung' in record["label"]:
             continue
@@ -284,7 +274,7 @@ def visualize_graph(graph, tv_name, id_internal, example_name):
 
     edges = []
 
-    cypher_query_edges = """
+    query_find_edges = """
             MATCH (a)-[r]->(b)
             RETURN
               CASE
@@ -301,7 +291,7 @@ def visualize_graph(graph, tv_name, id_internal, example_name):
                 CASE WHEN r.Produkt IS NOT NULL THEN '\\nProdukt: ' + r.Produkt ELSE '' END AS label
             """
 
-    result = graph.query(cypher_query_edges)
+    result = graph.query(query_find_edges)
     for record in result:
         if record["label"] == "HAT":
             continue
@@ -311,11 +301,11 @@ def visualize_graph(graph, tv_name, id_internal, example_name):
         edges.append((source, target, label))
 
 
-    # Graph definieren
+    # define graph layout
     dot = Digraph(format='pdf')
     dot.attr(rankdir='LR', size='10')  # Horizontal (Left-to-Right)
 
-    # Knoten hinzufügen
+    # add nodes
     for node_id, props in nodes.items():
 
         if node_id == tv_name:
@@ -323,75 +313,55 @@ def visualize_graph(graph, tv_name, id_internal, example_name):
         else:
             dot.node(node_id, label=props['label'], shape='box', style='filled', fillcolor='lightblue')
 
-    # Kanten hinzufügen
+    # add edges
     for src, dst, label in edges:
         if 'BEWEGTE_LIEFERUNG' in label:
             dot.edge(src, dst, label=label, color='red', fontcolor='red')
         else:
             dot.edge(src, dst, label=label)
 
-    # Als PDF speichern
-    dot.render(f"{id_internal}_{example_name}_visual_repr", format='pdf', cleanup=True)
+    # save as PDF
+    dot.render(f"pdf_graphs/{id_internal}_{example_name}_visual_repr", format='pdf', cleanup=True)
 
     print(f"visualisation done, id {id_internal}_{example_name}")
 
 ########################################
 #Queries to extract required knowledge #
 ########################################
-query_letztes_unternehmen = """
+query_last_enterprise = """
 OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]->() 
 WHERE NOT n:Transportverantwortung AND NOT EXISTS { MATCH ()-[:BESTELLUNG]->(n) } 
 
 RETURN COALESCE(n, "Inconsistent, no solution.") AS result
 """
-
-query_erstes_unternehmen = """
+query_first_enterprise = """
 OPTIONAL MATCH ()-[:BESTELLUNG]->(n:Unternehmen)
 WHERE NOT n:Transportverantwortung AND NOT EXISTS { MATCH (n)-[:BESTELLUNG]->() } 
 
 RETURN COALESCE(n, "Inconsistent, no solution.") AS result"""
-
-query_finde_warenbewegung = """
-    //Finde Lieferung
+query_find_transport_of_goods = """
     OPTIONAL MATCH (n:Unternehmen)-[:WARENBEWEGUNG]->(m:Unternehmen) 
     RETURN n, 'WARENBEWEGUNG' as Info, m
     """
-
-query_finde_abgangsstaat = """
-    //Finde Lieferung
+query_find_dispatch_country = """
     OPTIONAL MATCH (n:Unternehmen)-[:WARENBEWEGUNG]->(m:Unternehmen) 
     RETURN n.Sitz
     """
-
-query_reihengeschäft_prüfen = """
-    MATCH path = (start:Unternehmen)-[r1:BESTELLUNG*]->(end:Unternehmen)
-    OPTIONAL MATCH delivery_path = (n)-[r2:WARENBEWEGUNG]->(start) 
-    WHERE size(r1) >= 2  // Mindestens zwei BESTELLUNGEN müssen existieren
-    WITH path, delivery_path, r1, r2, start, end
-    RETURN 
-        CASE 
-            WHEN r2 IS NULL THEN "Kein Reihengeschäft: Keine direkte Lieferung vom letzten zum ersten Käufer."
-            WHEN size(r1) < 2 THEN "Kein Reihengeschäft: Nur 2 Unternehmen involviert."
-            WHEN NOT ALL(rel IN relationships(path) WHERE rel.Produkt = r2.Produkt) 
-                THEN "Kein Reihengeschäft: Produktabweichung in der Bestellkette."
-            ELSE 
-                {Beteiligte: nodes(path), 
-                  Bestellungen: (path), 
-                  Lieferung: delivery_path, 
-                  Status: "Reihengeschäft erkannt!" }
-        END AS Ergebnis"""
-
-query_transportverantwortung = """
+query_transport_responsibility = """
     MATCH (n:Unternehmen)-[:HAT]->(:Transportverantwortung)
     RETURN n"""
-
-query_anzahl_produkte = """
+query_no_of_products = """
     MATCH ()-[r]->()
     WHERE type(r) IN ['BESTELLUNG', 'WARENBEWEGUNG']
-    RETURN count(DISTINCT r.Produkt) AS anzahl_unterschiedlicher_produkte"""
+    RETURN count(DISTINCT r.Produkt) AS no_of_products"""
+query_no_of_orders = "MATCH (:Unternehmen)-[r:BESTELLUNG]->(:Unternehmen) RETURN count(r) AS no_of_orders"
+query_no_of_enterprises = "MATCH (n:Unternehmen) RETURN count(n) AS no_of_enterprises"
+query_no_of_transports_of_goods = "MATCH (:Unternehmen)-[r:WARENBEWEGUNG]->(:Unternehmen) RETURN count(r) AS no_of_transports_of_goods"
+query_no_of_tr = "MATCH (:Unternehmen)-[r:HAT]-(:Transportverantwortung) RETURN count(r) AS no_of_tr"
 
-
-#Load data
+##################################
+#Load data and define data source#
+##################################
 
 #only-jelly-47_REALWORLD.csv
 #memorable-muscle-25_DUPONT.csv
@@ -399,13 +369,16 @@ query_anzahl_produkte = """
 #pg__voo5__gpt-4.1__39c2a515_KOLLMANN.csv
 
 filename = "pg__voo5__gpt-4.1__5bc806a6.csv"
-df_langsmith = pd.read_csv("H:/Users/Lukas/OneDrive/Masterarbeit - LLMs in VAT - Knogler Lukas/Ergebnisse/" + filename)
+df_langsmith = pd.read_csv("data/" + filename)
 reference_filename = "Beispiele_RG_test_set.xlsx"
-df_database = pd.read_excel("H:/Users/Lukas/OneDrive/Masterarbeit - LLMs in VAT - Knogler Lukas/" + reference_filename)
-df_merged = df_langsmith.merge(df_database[['id','internal_id', 'musterlösung_bewegte_lieferung', 'quelle', 'name']], how="left",on='id')
+df_database = pd.read_excel("data/" + reference_filename)
+df_merged = df_langsmith.merge(df_database[['id','internal_id', 'sample_solution_movable_supply', 'data_set', 'name']], how="left",on='id')
 df_langsmith = df_merged.copy()
 
-#Initialize KG DB
+
+#####################################################################
+#Initialize KG DB and establish connection, instance must be running#
+#####################################################################
 graph = Neo4jGraph(refresh_schema=False)
 
 full_df = df_langsmith.index
@@ -429,9 +402,9 @@ for idx in full_df:
             continue
 
         #Construct distinct names for cases#
-        quelle = df_langsmith.at[idx, 'quelle']
+        data_set = df_langsmith.at[idx, 'data_set']
         name = df_langsmith.at[idx, 'name']
-        example_name = f"{quelle}_{name}"
+        example_name = f"{data_set}_{name}"
         id_internal = df_langsmith.at[idx, 'internal_id']
 
         cypher_statement = data['Cypher Anweisungen']
@@ -446,13 +419,13 @@ for idx in full_df:
 
         #Check if result equals the sample solution#
         #Add 'Prüfung' if check is not successful  #
-        if df_langsmith.at[idx, 'ergebnis_bewegte_lieferung'] == df_langsmith.at[idx, 'musterlösung_bewegte_lieferung']:
-            df_langsmith.at[idx, 'vergleich'] = "richtig"
+        if df_langsmith.at[idx, 'identified_movable_supply'] == df_langsmith.at[idx, 'sample_solution_movable_supply']:
+            df_langsmith.at[idx, 'result'] = "correct"
         else:
-            df_langsmith.at[idx, 'vergleich'] = "prüfung"
+            df_langsmith.at[idx, 'result'] = "check manually"
 
         #Generate visualization#
-        visualize_graph(graph, tv_name, id_internal, example_name)
+        visualize_graph(graph, tr_name, id_internal, example_name)
 
     except Exception as e:
         print(f"An unexpected error occurred: {e}, at ID:{idx}")
@@ -478,5 +451,5 @@ for idx in full_df:
 #Store the result as .xlsx #
 ############################
 timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M')
-df_langsmith.to_excel(f'H:/Users/Lukas/OneDrive/Masterarbeit - LLMs in VAT - Knogler Lukas/Ergebnisse/{filename}_{timestamp}_df_with_query_outputs.xlsx', index=True)
+df_langsmith.to_excel(f'output/{filename}_{timestamp}_df_with_query_outputs.xlsx', index=True)
 

@@ -14,10 +14,10 @@ os.environ["LANGSMITH_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
 os.environ["LANGSMITH_TRACING"] = os.getenv("LANGSMITH_TRACING")
 os.environ["LANGSMITH_ENDPOINT"] = os.getenv("LANGSMITH_ENDPOINT")
 
-# Rate Limiter konfigurieren (z.B. 1 Request alle 10 Sekunden)
+# configure Rate Limiter
 rate_limiter = InMemoryRateLimiter(
-    requests_per_second=10,  # 0.1 <-- Super slow! We can only make a request once every 10 seconds!!
-    check_every_n_seconds=3, # 0.1 Wake up every 100 ms to check whether allowed to make a request,
+    requests_per_second=10,  # 100 request every 10 seconds
+    check_every_n_seconds=0.1, # Wake up every 100 ms to check whether allowed to make a request
     max_bucket_size=100000
 )
 
@@ -35,5 +35,5 @@ async def main():
     await client.aevaluate(chain, data=dataset)
         #print(result)
 
-# Programm ausführen
+#run script
 asyncio.run(main())
