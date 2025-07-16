@@ -32,7 +32,7 @@ def delete_graph():
     """
     query = "MATCH (n) DETACH DELETE n"
     graph.query(query)
-    print("Graph deleted successfully")
+    print("\n Graph deleted successfully")
 
 def build_graph(query):
     """
@@ -181,12 +181,12 @@ def apply_logic_based_rules(graph, df):
         df.at[idx, 'is_chain_transaction_comment'] = error_text
 
         if tr_name == last_enterprise_name:
-            df.at[idx, 'moved_supply'] = "Letzter Umsatz \n" + str(last_supply)
+            df.at[idx, 'moved_supply'] = "Last supply \n" + str(last_supply)
             start = last_supply[0]['m']['Name']
             ziel = last_supply[0]['n']['Name']
 
         elif tr_name == first_enterprise_name:
-            df.at[idx, 'moved_supply'] = "Erster Umsatz \n" + str(first_supply)
+            df.at[idx, 'moved_supply'] = "First supply \n" + str(first_supply)
             start = first_supply[0]['m']['Name']
             ziel = first_supply[0]['n']['Name']
 
@@ -198,30 +198,22 @@ def apply_logic_based_rules(graph, df):
             # df.at[idx, 'zwischen_umsatz'] = str(zwischen_umsatz)
             # df.at[idx, 'zwischen_umsatz'] = df.at[idx, 'zwischen_umsatz'].replace("'", '"')
 
-            query_vorangegangener_umsatz = f"""
+            query_proceeding_supply = f"""
                                                 OPTIONAL MATCH (n:Unternehmen {{Name: "{tr_name}"}})-[:BESTELLUNG]->(m:Unternehmen)
                                                 RETURN n, 'BESTELLUNG' as Info, m"""
 
-            vorangegangener_umsatz = graph.query(query_vorangegangener_umsatz)
+            proceeding_supply = graph.query(query_proceeding_supply)
 
             dispatch_country = graph.query(query_find_dispatch_country)
             dispatch_country = dispatch_country[0]['n.Sitz']
             tv_uid = transport_responsibility[0]['n']['UID'][:2]
  
             if tv_uid == dispatch_country:
-                df.at[idx, 'moved_supply'] = (("Ja, UID gleich wie Abgangsstaat."
-                                                              f"\n{tv_uid} == {dispatch_country}"
-                                                              "\nUmsatz des Zwischenhändlers\n")
-                                                             + str(intermediate_supply))
                 start = intermediate_supply[0]['m']['Name']
                 ziel = intermediate_supply[0]['n']['Name']
             else:
-                df.at[idx, 'moved_supply'] = (("Andere oder gar keine UID."
-                                                              f"\n{tv_uid} != {dispatch_country}"
-                                                              "\nUmsatz zum Zwischenhändler. \n")
-                                                             + str(vorangegangener_umsatz))
-                start = vorangegangener_umsatz[0]['m']['Name']
-                ziel = vorangegangener_umsatz[0]['n']['Name']
+                start = proceeding_supply[0]['m']['Name']
+                ziel = proceeding_supply[0]['n']['Name']
 
 
         query_movable_supply = (f'\nMATCH (a:Unternehmen {{Name: "{start}"}}),'
@@ -359,18 +351,21 @@ query_no_of_enterprises = "MATCH (n:Unternehmen) RETURN count(n) AS no_of_enterp
 query_no_of_transports_of_goods = "MATCH (:Unternehmen)-[r:WARENBEWEGUNG]->(:Unternehmen) RETURN count(r) AS no_of_transports_of_goods"
 query_no_of_tr = "MATCH (:Unternehmen)-[r:HAT]-(:Transportverantwortung) RETURN count(r) AS no_of_tr"
 
-##################################
-#Load data and define data source#
-##################################
 
-#only-jelly-47_REALWORLD.csv
-#memorable-muscle-25_DUPONT.csv
-#glossy-question-8_MuW.csv
-#pg__voo5__gpt-4.1__39c2a515_KOLLMANN.csv
+##################################################################################
+# Load data and define data source                                               #
+# Copy paste from this list of files containing the LLM output for each data set #
+#                                                                                #
+# EXAM.csv                                                                       #
+# REALWORLD.csv                                                                  #
+# DUPONT.csv                                                                     #
+# MuW.csv                                                                        #
+# KOLLMANN.csv                                                                   #
+##################################################################################
 
-filename = "pg__voo5__gpt-4.1__5bc806a6.csv"
+filename = ("KOLLMANN.csv")
 df_langsmith = pd.read_csv("data/" + filename)
-reference_filename = "Beispiele_RG_test_set.xlsx"
+reference_filename = ("sample_solutions_censored.xlsx")
 df_database = pd.read_excel("data/" + reference_filename)
 df_merged = df_langsmith.merge(df_database[['id','internal_id', 'sample_solution_movable_supply', 'data_set', 'name']], how="left",on='id')
 df_langsmith = df_merged.copy()
@@ -425,7 +420,7 @@ for idx in full_df:
             df_langsmith.at[idx, 'result'] = "check manually"
 
         #Generate visualization#
-        visualize_graph(graph, tr_name, id_internal, example_name)
+        #visualize_graph(graph, tr_name, id_internal, example_name)
 
     except Exception as e:
         print(f"An unexpected error occurred: {e}, at ID:{idx}")
