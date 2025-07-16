@@ -5,19 +5,18 @@
 This application was developed to solve Chain Transaction (CT) Cases under Austrian tax law by the use of LLMs and Knowledge Graphs (KG).
 To this purpose it extracts knowledge from given natural language text and generates a knowlege graph in Neo4j Aura, runs several queries and applies a set of logic-based rules to identify the movable supply of the CT.
 
-To run this application one must install requirements.txt
+To run this application you must install requirements.txt
 
-Following packages are used:
-pandas~=2.2.3
-python-dotenv~=1.0.1
-graphviz~=0.20.3
-langsmith~=0.3.11
-langchain-core~=0.3.40
+First, it establishes a conntection to the Neo4j Aura database and Langsmith.
+Make sure to use the correct credentials in an .env file.
+Make sure the instance of Neo4j Aura is running.
 
-After initializing the access to Neo4j and Langsmith we define a set of functions:
+There are 2 files in this repository:
+run_experiment.py --> used to access the LLM via Langsmith and generate Cypher statements
+ct_solver.py --> used to process the LLM output, generate a KG and identify the movable supply
 
-## Functions
-      	 	
+
+## Functions   	 	
 ### apply_logic_based_rules(graph, df)
 Application of the logic based rules.
 First, run queries to identify and extract required data.
