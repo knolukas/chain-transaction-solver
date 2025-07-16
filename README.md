@@ -58,12 +58,12 @@ Next we define a set of queries to extract information from the KG:
 ## Queries
 
 ### Find last enterprise
-query_letztes_unternehmen = """
+`query_letztes_unternehmen = """
 OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]->() 
 WHERE NOT n:Transportverantwortung AND NOT EXISTS { MATCH ()-[:BESTELLUNG]->(n) } 
 
 RETURN COALESCE(n, "Inconsistent, no solution.") AS result
-"""
+"""`
 
 ### Find first enterprise
 query_erstes_unternehmen = """
