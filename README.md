@@ -69,52 +69,69 @@ pip install -r requirements.txt
 
 ## 🧾 Key Cypher Queries
 
-```cypher
-// Find last enterprise
-OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]->()
-WHERE NOT n:Transportverantwortung AND NOT EXISTS {
-  MATCH ()-[:BESTELLUNG]->(n)
-}
+```python
+query_last_enterprise = """
+OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]->() 
+WHERE NOT n:Transportverantwortung AND NOT EXISTS { MATCH ()-[:BESTELLUNG]->(n) } 
 RETURN COALESCE(n, "Inconsistent, no solution.") AS result
-```
+"""
 
-```cypher
-// Find first enterprise
+query_first_enterprise = """
 OPTIONAL MATCH ()-[:BESTELLUNG]->(n:Unternehmen)
-WHERE NOT n:Transportverantwortung AND NOT EXISTS {
-  MATCH (n)-[:BESTELLUNG]->()
-}
+WHERE NOT n:Transportverantwortung AND NOT EXISTS { MATCH (n)-[:BESTELLUNG]->() } 
 RETURN COALESCE(n, "Inconsistent, no solution.") AS result
-```
+"""
 
-```cypher
-// Find delivery (transport)
-OPTIONAL MATCH (n:Unternehmen)-[:WARENBEWEGUNG]->(m:Unternehmen)
+query_find_transport_of_goods = """
+OPTIONAL MATCH (n:Unternehmen)-[:WARENBEWEGUNG]->(m:Unternehmen) 
 RETURN n, 'WARENBEWEGUNG' as Info, m
-```
+"""
 
-```cypher
-// Check if valid CT (chain transaction)
-MATCH path = (start:Unternehmen)-[r1:BESTELLUNG*]->(end:Unternehmen)
-OPTIONAL MATCH delivery_path = (n)-[r2:WARENBEWEGUNG]->(start)
-WHERE size(r1) >= 2
-RETURN CASE
-  WHEN r2 IS NULL THEN "Kein Reihengeschäft: Keine direkte Lieferung vom letzten zum ersten Käufer."
-  WHEN size(r1) < 2 THEN "Kein Reihengeschäft: Nur 2 Unternehmen involviert."
-  WHEN NOT ALL(rel IN relationships(path) WHERE rel.Produkt = r2.Produkt)
-    THEN "Kein Reihengeschäft: Produktabweichung in der Bestellkette."
-  ELSE {
-    Beteiligte: nodes(path),
-    Bestellungen: (path),
-    Lieferung: delivery_path,
-    Status: "Reihengeschäft erkannt!"
-  }
-END AS Ergebnis
-```
+query_find_dispatch_country = """
+OPTIONAL MATCH (n:Unternehmen)-[:WARENBEWEGUNG]->(m:Unternehmen) 
+RETURN n.Sitz
+"""
 
-(Additional queries for transport responsibility, product counts, departure states, etc., are included in the source code.)
+query_transport_responsibility = """
+MATCH (n:Unternehmen)-[:HAT]->(:Transportverantwortung)
+RETURN n
+"""
 
----
+query_no_of_products = """
+MATCH ()-[r]->()
+WHERE type(r) IN ['BESTELLUNG', 'WARENBEWEGUNG']
+RETURN count(DISTINCT r.Produkt) AS no_of_products
+"""
+
+query_no_of_orders = "MATCH (:Unternehmen)-[r:BESTELLUNG]->(:Unternehmen) RETURN count(r) AS no_of_orders"
+query_no_of_enterprises = "MATCH (n:Unternehmen) RETURN count(n) AS no_of_enterprises"
+query_no_of_transports_of_goods = "MATCH (:Unternehmen)-[r:WARENBEWEGUNG]->(:Unternehmen) RETURN count(r) AS no_of_transports_of_goods"
+query_no_of_tr = "MATCH (:Unternehmen)-[r:HAT]-(:Transportverantwortung) RETURN count(r) AS no_of_tr"
+
+query_first_supply = f"""
+OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]->(m:Unternehmen {{Name: "{first_enterprise_name}"}})
+RETURN n, 'BESTELLUNG' as Info, m
+"""
+
+query_last_supply = f"""
+OPTIONAL MATCH (n:Unternehmen {{Name: "{last_enterprise_name}"}})-[:BESTELLUNG]->(m:Unternehmen)
+RETURN n, 'BESTELLUNG' as Info, m
+"""
+
+query_intermediate_supply = f"""
+OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]->(m:Unternehmen {{Name: "{tr_name}"}})
+RETURN n, 'BESTELLUNG' as Info, m
+"""
+
+query_pre_intermediate_supply = f"""
+OPTIONAL MATCH (n:Unternehmen {{Name: "{tr_name}"}})-[:BESTELLUNG]->(m:Unternehmen)
+RETURN n, 'BESTELLUNG' as Info, m
+"""
+
+query_movable_supply = (f'\nMATCH (a:Unternehmen {{Name: "{start}"}}),'
+                        f'(b:Unternehmen {{Name: "{ziel}"}})'
+                        '\nCREATE (a)-[:BEWEGTE_LIEFERUNG]->(b)')
+```---
 
 ## 📊 Data Processing Pipeline
 
