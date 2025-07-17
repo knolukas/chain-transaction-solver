@@ -131,7 +131,8 @@ RETURN n, 'BESTELLUNG' as Info, m
 query_movable_supply = (f'\nMATCH (a:Unternehmen {{Name: "{start}"}}),'
                         f'(b:Unternehmen {{Name: "{ziel}"}})'
                         '\nCREATE (a)-[:BEWEGTE_LIEFERUNG]->(b)')
-```---
+```
+---
 
 ## 📊 Data Processing Pipeline
 
@@ -146,7 +147,7 @@ query_movable_supply = (f'\nMATCH (a:Unternehmen {{Name: "{start}"}}),'
 
 ---
 
-## 🛠️ Exception Handling
+## 🛠 Exception Handling
 
 All exceptions are logged with the following information:
 
@@ -176,4 +177,4 @@ This repository is part of the research project:
 
 **Using Large Language Models and Knowledge Graphs for Deciding VAT Chain-Transaction Cases in Austrian Tax Law**  
 *Author: Lukas Knogler, Austria (JKU Linz)*  
-See the [experimental results repository](https://github.com/knolukas/ct-solver-results.git) for more.
+See the [experimentalresultsrepository](https://github.com/knolukas/ct-solver-results.git) for more.
