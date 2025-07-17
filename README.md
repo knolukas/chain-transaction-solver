@@ -140,8 +140,8 @@ query_movable_supply = (f'\nMATCH (a:Unternehmen {{Name: "{start}"}}),'
 3. Initialize Neo4j connection and build the graph.
 4. Apply logic rules to detect chain transaction patterns.
 5. Compare identified movable supply with sample solution:
-   - If it matches → mark as `richtig`.
-   - If not → mark as `prüfung` (manual check required).
+   - If it matches → `correct`
+   - If not → `check manually` 
 6. Visualize the knowledge graph.
 
 ---
@@ -166,7 +166,7 @@ All exceptions are logged with the following information:
 ## 📬 Contact
 
 For questions or contributions, please contact:  
-📧 [Your Email Address]
+📧 knogler.lukas@gmail.com
 
 ---
 
@@ -176,4 +176,4 @@ This repository is part of the research project:
 
 **Using Large Language Models and Knowledge Graphs for Deciding VAT Chain-Transaction Cases in Austrian Tax Law**  
 *Author: Lukas Knogler, Austria (JKU Linz)*  
-See the [experimental results repository](#) for more.
+See the [[experimental results repository](https://github.com/knolukas/ct-solver-results.git)](#) for more.
