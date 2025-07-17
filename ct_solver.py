@@ -191,18 +191,17 @@ def apply_logic_based_rules(graph, df):
             ziel = first_supply[0]['n']['Name']
 
         else:
-            query_zwischen_umsatz = f"""
+            query_intermediate_supply = f"""
                                 OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]->(m:Unternehmen {{Name: "{tr_name}"}})
                                 RETURN n, 'BESTELLUNG' as Info, m"""
-            intermediate_supply = graph.query(query_zwischen_umsatz)
+            intermediate_supply = graph.query(query_intermediate_supply)
             # df.at[idx, 'zwischen_umsatz'] = str(zwischen_umsatz)
             # df.at[idx, 'zwischen_umsatz'] = df.at[idx, 'zwischen_umsatz'].replace("'", '"')
 
-            query_proceeding_supply = f"""
-                                                OPTIONAL MATCH (n:Unternehmen {{Name: "{tr_name}"}})-[:BESTELLUNG]->(m:Unternehmen)
+            query_pre_intermediate_supply = f"""OPTIONAL MATCH (n:Unternehmen {{Name: "{tr_name}"}})-[:BESTELLUNG]->(m:Unternehmen)
                                                 RETURN n, 'BESTELLUNG' as Info, m"""
 
-            proceeding_supply = graph.query(query_proceeding_supply)
+            pre_intermediate_supply = graph.query(query_pre_intermediate_supply)
 
             dispatch_country = graph.query(query_find_dispatch_country)
             dispatch_country = dispatch_country[0]['n.Sitz']
@@ -212,8 +211,8 @@ def apply_logic_based_rules(graph, df):
                 start = intermediate_supply[0]['m']['Name']
                 ziel = intermediate_supply[0]['n']['Name']
             else:
-                start = proceeding_supply[0]['m']['Name']
-                ziel = proceeding_supply[0]['n']['Name']
+                start = pre_intermediate_supply[0]['m']['Name']
+                ziel = pre_intermediate_supply[0]['n']['Name']
 
 
         query_movable_supply = (f'\nMATCH (a:Unternehmen {{Name: "{start}"}}),'
