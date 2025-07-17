@@ -158,12 +158,6 @@ All exceptions are logged with the following information:
 
 ---
 
-## 📄 License
-
-[Specify license here, e.g., MIT, Apache 2.0, etc.]
-
----
-
 ## 📬 Contact
 
 For questions or contributions, please contact:  
