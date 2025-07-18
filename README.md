@@ -1,4 +1,4 @@
-# Chain Transaction Solver using LLMs and Knowledge Graphs
+<img width="800" height="800" alt="image" src="https://github.com/user-attachments/assets/db5b544b-6ec0-45cc-b0d1-856ec8a111a6" /># Chain Transaction Solver using LLMs and Knowledge Graphs
 
 This application was developed to solve **Chain Transaction (CT) cases** under **Austrian tax law** using **Large Language Models (LLMs)** and **Knowledge Graphs (KGs)**.
 
@@ -80,6 +80,18 @@ pip install -r requirements.txt
 6. Visualize the knowledge graph.
 
 ---
+
+## 🔧 Experimental setup
+1. Set up a Neo4j Aura Instance
+2. Set up a LLM Platform (we used Langsmith from Langhchain)
+3. Access the code repository and follow the installation guide
+4. Use the provided cases (column 'inputs_decoded' in Results_censored.xslx)
+5. Access the original data sources for censored cases
+6. Run the script from the code repository
+7. Compare columns 'identified_movable_supply' and 'sample_solution_movable_supply' for cases where result is 'Check manually'
+8. Make sure to exclude cases according to the evaluation guideline
+9. Only use correct represented cases (correct KG) for the application of law-based rules
+10. Calculate accuaracy (Correct/Total - Excluded)
 
 ## 🛠 Exception Handling
 
