@@ -362,8 +362,8 @@ query_no_of_tr = "MATCH (:Unternehmen)-[r:HAT]-(:Transportverantwortung) RETURN 
 # KOLLMANN.csv                                                                   #
 ##################################################################################
 
-filename = ("KOLLMANN.csv")
-df_langsmith = pd.read_csv("data/" + filename)
+input_filename = ("KOLLMANN.csv")
+df_langsmith = pd.read_csv("data/" + input_filename)
 reference_filename = ("sample_solutions_censored.xlsx")
 df_database = pd.read_excel("data/" + reference_filename)
 df_merged = df_langsmith.merge(df_database[['id','internal_id', 'sample_solution_movable_supply', 'data_set', 'name']], how="left",on='id')
@@ -445,5 +445,5 @@ for idx in full_df:
 #Store the result as .xlsx #
 ############################
 timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M')
-df_langsmith.to_excel(f'output/{filename}_{timestamp}_df_with_query_outputs.xlsx', index=True)
+df_langsmith.to_excel(f'output/{input_filename}_{timestamp}_output_file.xlsx', index=True)
 
