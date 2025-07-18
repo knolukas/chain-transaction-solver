@@ -85,13 +85,18 @@ pip install -r requirements.txt
 1. Set up a Neo4j Aura Instance
 2. Set up a LLM Platform (we used Langsmith from Langhchain)
 3. Access the code repository and follow the installation guide
-4. Use the provided cases (column 'inputs_decoded' in Results_censored.xslx)
+4. Use the provided cases for your LLM application (real_world_cases.csv)
 5. Access the original data sources for censored cases
-6. Run the script from the code repository
-7. Compare columns 'identified_movable_supply' and 'sample_solution_movable_supply' for cases where result is 'Check manually'
-8. Make sure to exclude cases according to the evaluation guideline
-9. Only use correct represented cases (correct KG) for the application of law-based rules
-10. Calculate accuaracy (Correct/Total - Excluded)
+6. The output of the LLM must contain a column 'outputs'. 
+| outputs | 
+|----------|
+| Structured output in JSON format. It must contain a JSON object "Cypher Statements" |
+
+8. Run the script from the code repository
+9. Compare columns 'identified_movable_supply' and 'sample_solution_movable_supply' for cases where result is 'Check manually'
+10. Make sure to exclude cases according to the evaluation guideline
+11. Only use correct represented cases (correct KG) for the application of law-based rules
+12. Calculate accuaracy (Correct/Total - Excluded)
 
 ## 🛠 Exception Handling
 
