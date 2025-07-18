@@ -1,4 +1,4 @@
-<img width="800" height="800" alt="image" src="https://github.com/user-attachments/assets/db5b544b-6ec0-45cc-b0d1-856ec8a111a6" /># Chain Transaction Solver using LLMs and Knowledge Graphs
+# Chain Transaction Solver using LLMs and Knowledge Graphs
 
 This application was developed to solve **Chain Transaction (CT) cases** under **Austrian tax law** using **Large Language Models (LLMs)** and **Knowledge Graphs (KGs)**.
 
