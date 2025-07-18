@@ -87,7 +87,8 @@ pip install -r requirements.txt
 3. Access the code repository and follow the installation guide
 4. Use the provided cases for your LLM application (real_world_cases.csv)
 5. Access the original data sources for censored cases
-6. The output of the LLM must contain a column 'outputs'. 
+6. The output of the LLM must contain a column 'outputs'
+
 | outputs | 
 |----------|
 | Structured output in JSON format. It must contain a JSON object "Cypher Statements" |
