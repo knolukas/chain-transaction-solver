@@ -312,9 +312,9 @@ def visualize_graph(graph, tv_name, id_internal, example_name):
             dot.edge(src, dst, label=label)
 
     # save as PDF
-    dot.render(f"pdf_graphs/{id_internal}_{example_name}_visual_repr", format='pdf', cleanup=True)
+    dot.render(f"pdf_graphs/{str(id_internal)}_{example_name}_visual_repr", format='pdf', cleanup=True)
 
-    print(f"visualisation done, id {id_internal}_{example_name}")
+    print(f"visualization done, id {id_internal}_{example_name}")
 
 ########################################
 #Queries to extract required knowledge #
@@ -362,7 +362,7 @@ query_no_of_tr = "MATCH (:Unternehmen)-[r:HAT]-(:Transportverantwortung) RETURN 
 # KOLLMANN.csv                                                                   #
 ##################################################################################
 
-input_filename = ("KOLLMANN.csv")
+input_filename = ("DUPONT.csv")
 df_langsmith = pd.read_csv("data/" + input_filename)
 reference_filename = ("sample_solutions_censored.xlsx")
 df_database = pd.read_excel("data/" + reference_filename)
