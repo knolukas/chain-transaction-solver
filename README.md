@@ -91,7 +91,7 @@ pip install -r requirements.txt
 
 | outputs | 
 |----------|
-| Structured output in JSON format. It must contain a JSON object "Cypher Statements" |
+| Structured output in JSON format. It must contain a JSON object "Cypher Anweisungen" (translated: Cypher statements) |
 
 8. Run the script from the code repository
 9. Compare columns 'identified_movable_supply' and 'sample_solution_movable_supply' for cases where result is 'Check manually'
