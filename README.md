@@ -1,4 +1,4 @@
-# Chain Transaction Solver using LLMs and Knowledge Graphs
+# VAT Chain Transaction Solver using LLMs and Knowledge Graphs
 
 This application was developed to solve **Chain Transaction (CT) cases** under **Austrian tax law** using **Large Language Models (LLMs)** and **Knowledge Graphs (KGs)**.
 
