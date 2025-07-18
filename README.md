@@ -93,11 +93,12 @@ pip install -r requirements.txt
 |----------|
 | Structured output in JSON format. It must contain a JSON object "Cypher Anweisungen" (translated: Cypher statements) |
 
-8. Run the script from the code repository
-9. Compare columns 'identified_movable_supply' and 'sample_solution_movable_supply' for cases where result is 'Check manually'
-10. Make sure to exclude cases according to the evaluation guideline
-11. Only use correct represented cases (correct KG) for the application of law-based rules
-12. Calculate accuaracy (Correct/Total - Excluded)
+8. Run the script in ct_solver.py
+9. You receive an .xlsx output in the \output folder and a .pdf file containing the visual representation of the graph in the \pdf_graph folder.
+10. Compare columns 'identified_movable_supply' and 'sample_solution_movable_supply' for cases where result is 'Check manually'
+11. Make sure to exclude cases according to the evaluation guideline
+12. Only use correct represented cases (correct KG) for the application of law-based rules
+13. Calculate accuaracy (Correct/Total - Excluded)
 
 ## 🛠 Exception Handling
 
