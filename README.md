@@ -1,4 +1,4 @@
-# Chain Transaction Solver using LLMs and Knowledge Graphs
+# VAT Chain Transaction Solver using LLMs and Knowledge Graphs
 
 This application was developed to solve **Chain Transaction (CT) cases** under **Austrian tax law** using **Large Language Models (LLMs)** and **Knowledge Graphs (KGs)**.
 
@@ -80,6 +80,27 @@ pip install -r requirements.txt
 6. Visualize the knowledge graph.
 
 ---
+
+## 🔧 Experimental setup
+1. Set up a Neo4j Aura Instance.
+2. Set up a LLM Platform (we used Langsmith from Langhchain).
+3. Access the code repository and follow the installation guide.
+4. Use the provided cases for your LLM application ('data\real_world_cases_utf8.csv', 'data\exam_cases_utf8.csv').
+5. Reach out to us an we can provide a direct link to the Langsmith datasets.
+6. Access the original data sources for censored cases.
+7. The output of the LLM must contain a column 'outputs'.
+
+| outputs | 
+|----------|
+| Structured output in JSON format. It must contain a JSON object "Cypher Anweisungen" (translated: Cypher statements) |
+
+8. Run the script in ct_solver.py.
+9. You receive an .xlsx output in the \output folder and a .pdf file containing the visual representation of the graph in the \pdf_graph folder.
+10. Open the '{input_filename}_{timestamp}_output_file.xlsx' file and compare columns 'identified_movable_supply' and 'sample_solution_movable_supply' for cases where result is 'Check manually'.
+    Decide if the moveable supply is correct, wrong or the case must be excluded.
+12. Make sure to exclude cases according to the evaluation guideline.
+13. Only use correct represented cases (correct KG) for the application of law-based rules.
+14. Calculate accuaracy (Correct/Total - Excluded).
 
 ## 🛠 Exception Handling
 
