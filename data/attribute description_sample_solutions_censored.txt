@@ -1,0 +1,18 @@
+internal_id: unique id, running integer
+
+case description: description of the case in natural language
+
+data_set: origin/source of the case [Dupont, Exam, M&W, KOLLMANN, REALCASES]
+
+name: source-specific name of the case
+	- Dupont: use of names from the textbook
+	- Exam: names refer to example id of the respective exam
+	- M&W: names refer to chapter and page number
+	- KOLLMANN: id of the original document, variations on the examples have a sub-point
+	- REALCASES: id of the original source, variations on the examples have a sub-point
+
+case solution: natural language case solution (extensive)
+
+id: run id of the example provided by the results of the langchain Experiment
+
+sample_solution_movable_supply:condensed case solution stating the movable supply, if available
