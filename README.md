@@ -116,7 +116,7 @@ All exceptions are logged with the following information:
 ## 📬 Contact
 
 For questions or contributions, please contact:  
-📧 knogler.lukas@gmail.com
+📧 knogler@dke.uni-linz.ac.at
 
 ---
 
