@@ -60,39 +60,5 @@ Third,&nbsp;identify&nbsp;the&nbsp;movable&nbsp;supply.<br>
 <tr class="decor data-decor heading-text">
 <td class="section-title" colspan=3>&nbsp;<br><strong class="bigsection">Data</strong></td></tr>
     
-<tr><td class="decor data-decor"><span class="code">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td><td>&nbsp;</td>
-<td class="singlecolumn"><strong>LANGSMITH_API_KEY</strong> = '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'<br>
-<strong>cypher_statement</strong> = '// Unternehmen-Knoten<span class="repr">\n</span>CREATE (Kunde:Unternehmen ... er verantwortlich<span class="repr">\n</span>CREATE (Lieferant)-[:HAT]-&gt;(T)'<br>
-<strong>data</strong> = {'Argumentation': '1. Identifikation der Parteien: <span class="repr">\n</span>- Kunde (IT, ke... Lieferanten, da dieser die Lieferung durchführt.', 'Cypher Anweisungen': '// Unternehmen-Knoten<span class="repr">\n</span>CREATE (Kunde:Unternehmen ...er verantwortlich<span class="repr">\n</span>CREATE (Lieferant)-[:HAT]-&gt;(T);', 'Inhaltliche Zusammenfassung': 'Der Kunde in Italien bestellt Waren bei PIZZA &amp; ...ie Transportverantwortung liegt beim Lieferanten.'}<br>
-<strong>data_set</strong> = 'REALCASES'<br>
-<strong>df_database</strong> =      internal_id                                ...        Ö2-&gt;Ö3       1309
 
-[189 rows x 9 columns]<br>
-<strong>df_langsmith</strong> =                                      id         ...ZA &amp; PASTA  check manually
-
-[1 rows x 28 columns]<br>
-<strong>df_merged</strong> =                                      id         ...zza Pasta  REALCASES    10
-
-[1 rows x 14 columns]<br>
-<strong>example_name</strong> = 'REALCASES_10'<br>
-<strong>filename</strong> = 'pg__voo5__gpt-4.1__5bc806a6.csv'<br>
-<strong>full_df</strong> = RangeIndex(start=0, stop=1, step=1)<br>
-<strong>graph</strong> = &lt;langchain_neo4j.graphs.neo4j_graph.Neo4jGraph object&gt;<br>
-<strong>graph_data</strong> = []<br>
-<strong>id_internal</strong> = 158<br>
-<strong>idx</strong> = 0<br>
-<strong>name</strong> = 10<br>
-<strong>query_find_dispatch_country</strong> = '<span class="repr">\n</span>    OPTIONAL MATCH (n:Unternehmen)-[:WARENBEWEGUNG]-&gt;(m:Unternehmen) <span class="repr">\n</span>    RETURN n.Sitz<span class="repr">\n</span>    '<br>
-<strong>query_find_transport_of_goods</strong> = "<span class="repr">\n</span>    OPTIONAL MATCH (n:Unternehmen)-[:WARENBEWEG...n) <span class="repr">\n</span>    RETURN n, 'WARENBEWEGUNG' as Info, m<span class="repr">\n</span>    "<br>
-<strong>query_first_enterprise</strong> = '<span class="repr">\n</span>OPTIONAL MATCH ()-[:BESTELLUNG]-&gt;(n:Unternehmen...ALESCE(n, "Inconsistent, no solution.") AS result'<br>
-<strong>query_last_enterprise</strong> = '<span class="repr">\n</span>OPTIONAL MATCH (n:Unternehmen)-[:BESTELLUNG]-&gt;(...LESCE(n, "Inconsistent, no solution.") AS result<span class="repr">\n</span>'<br>
-<strong>query_no_of_enterprises</strong> = 'MATCH (n:Unternehmen) RETURN count(n) AS no_of_enterprises'<br>
-<strong>query_no_of_orders</strong> = 'MATCH (:Unternehmen)-[r:BESTELLUNG]-&gt;(:Unternehmen) RETURN count(r) AS no_of_orders'<br>
-<strong>query_no_of_products</strong> = "<span class="repr">\n</span>    MATCH ()-[r]-&gt;()<span class="repr">\n</span>    WHERE type(r) IN ['BES...ETURN count(DISTINCT r.Produkt) AS no_of_products"<br>
-<strong>query_no_of_tr</strong> = 'MATCH (:Unternehmen)-[r:HAT]-(:Transportverantwortung) RETURN count(r) AS no_of_tr'<br>
-<strong>query_no_of_transports_of_goods</strong> = 'MATCH (:Unternehmen)-[r:WARENBEWEGUNG]-&gt;(:Unternehmen) RETURN count(r) AS no_of_transports_of_goods'<br>
-<strong>query_transport_responsibility</strong> = '<span class="repr">\n</span>    MATCH (n:Unternehmen)-[:HAT]-&gt;(:Transportverantwortung)<span class="repr">\n</span>    RETURN n'<br>
-<strong>reference_filename</strong> = 'Beispiele_RG_test_set.xlsx'<br>
-<strong>timestamp</strong> = '20250716_2003'<br>
-<strong>tr_name</strong> = 'Lieferant'</td></tr></table>
 </body></html>
