@@ -1,5 +1,5 @@
 # VAT Chain Transaction Solver using LLMs and Knowledge Graphs
-
+The respository is also stored as Zenodo archive with following DOI: https://doi.org/10.5281/zenodo.16112381
 This application was developed to solve **Chain Transaction (CT) cases** under **Austrian tax law** using **Large Language Models (LLMs)** and **Knowledge Graphs (KGs)**.
 
 The tool extracts knowledge from natural language text, generates a knowledge graph in **Neo4j Aura**, runs a set of predefined **Cypher queries**, and applies **logic-based rules** to identify the **movable supply** in chain transactions.
