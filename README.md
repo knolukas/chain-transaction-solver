@@ -1,9 +1,9 @@
 # VAT Chain Transaction Solver using LLMs and Knowledge Graphs
 The respository is also stored as Zenodo archive with following DOI: https://doi.org/10.5281/zenodo.16112381
 
-This application was developed to solve **Chain Transaction (CT) cases** under **Austrian tax law** using **Large Language Models (LLMs)** and **Knowledge Graphs (KGs)**.
+This application was developed to solve **Chain Transaction (CT) cases** under **Austrian European VAT law** using **Large Language Models (LLMs)** and **Knowledge Graphs (KGs)**.
 
-The tool extracts knowledge from natural language text, generates a knowledge graph in **Neo4j Aura**, runs a set of predefined **Cypher queries**, and applies **logic-based rules** to identify the **movable supply** in chain transactions.
+The tool extracts knowledge from natural language text, generates a knowledge graph in **Neo4j Aura**, runs a set of predefined **Cypher queries** and **programmatic "if--then--else statements"**, and applies **law-based rules** to identify the **movable supply** in chain transactions.
 
 ---
 
@@ -36,10 +36,10 @@ pip install -r requirements.txt
 ### 3. Files Overview
 
 - `run_experiment.py`  
-  Connects to the LLM via Langsmith and generates Cypher statements.
+  Sends the input data to the LLM and produces an experiment instance in Langsmith. Choose the correct dataset (file containing the input data) in the code.
 
 - `ct_solver.py`  
-  Processes LLM output, builds the knowledge graph, applies logic rules, and identifies the movable supply.
+  Processes the LLM output file, builds the knowledge graph in Neo4j, applies the law-based rules, identifies the movable supply, and generates a graphical representation of the chain transaction.
 
 ---
 
@@ -58,13 +58,13 @@ pip install -r requirements.txt
 - Cleans LLM-generated Cypher statements to remove inconsistencies.
 
 ### `delete_graph()`
-- Deletes the current graph from the Neo4j database.
+- Deletes the current graph from the Neo4j database (Cleans the storage of the Neo4j instance)
 
 ### `replace_name_fields(text)`
 - Normalizes entity names to ensure consistency.
 
 ### `visualize_graph(graph, tv_name, id_internal, example_name)`
-- Custom visualization of the graph and the identified movable supply.
+- Custom visualization of the graph - the chain transaction - and the identified movable supply.
 
 ---
 
