@@ -125,7 +125,7 @@ For questions or contributions, please contact:
 
 This repository is part of the research project:
 
-**Using Large Language Models and Knowledge Graphs Law-Bases Rules for the Analysis of VAT Chain-Transaction Cases in Austrian VAT Law**  
+**Using Large Language Models and Law-Based Rules over Extracted Knowledge Graphs for the Analysis of VAT Chain-Transaction Cases in Austrian VAT Law**  
 *Author: Lukas Knogler, Johannes Kepler University Linz, Altenberger Str. 69, 4040 Linz, Austria*  https://doi.org/10.5281/zenodo.16112381
 
 See the [experimental results repository](https://github.com/knolukas/ct-solver-results.git) for more.
